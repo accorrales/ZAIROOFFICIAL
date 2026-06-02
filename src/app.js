@@ -21,11 +21,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors({
-    origin: [
-        'http://localhost:4200',
-        'https://TU_FRONTEND.vercel.app'
-    ],
-    credentials: true
+  origin: [
+    'http://localhost:4200',
+    'https://zairo-frontend-theta.vercel.app'
+  ],
+  credentials: true
 }));
 app.use(express.json());
 
