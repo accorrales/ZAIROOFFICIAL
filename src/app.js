@@ -16,6 +16,7 @@ const usuariosRoutes = require('./routes/usuariosRoutes');
 const eventosRoutes = require('./routes/eventosRoutes');
 const entradasRoutes = require('./routes/entradasRoutes');
 const entradaTiersRoutes = require('./routes/entradaTiersRoutes');
+const comprasEntradasRoutes = require('./routes/comprasEntradasRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -41,7 +42,8 @@ app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/eventos', eventosRoutes);
 app.use('/api/entradas', entradasRoutes);
 app.use('/api/entrada-tiers', entradaTiersRoutes);
-    
+app.use('/api/compras-entradas', comprasEntradasRoutes);
+
 app.get('/api/prueba-dashboard', (req, res) => {
     res.json({ mensaje: 'Ruta directa funcionando' });
 });
