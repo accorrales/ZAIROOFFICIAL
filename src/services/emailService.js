@@ -8,45 +8,240 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-const enviarEntradaPorCorreo = async ({ para, nombreEvento, fechaEvento, codigoQR, qrBase64 }) => {
+exports.enviarEntradas = async ({
+  correo,
+  evento,
+  entrada,
+  personas
+}) => {
+
+ const attachments = personas.map((p, index) => ({
+  filename: `Entrada-${index + 1}-${p.nombre_completo}.png`,
+  path: p.ruta_qr,
+  cid: `qr${index + 1}`
+}));
+
+  const listaPersonas = personas.map((p, index) => `
+    <li>
+      <strong>${index + 1}. ${p.nombre_completo}</strong>
+    </li>
+  `).join('');
+
   await transporter.sendMail({
     from: `"ZAIRO" <${process.env.EMAIL_USER}>`,
-    to: para,
-    subject: `Tu entrada para ${nombreEvento}`,
+    to: correo,
+    subject: `Tus entradas para ${evento}`,
+
     html: `
-      <div style="font-family: Arial, sans-serif; background:#0f172a; color:white; padding:30px;">
-        <div style="max-width:600px; margin:auto; background:#111827; padding:25px; border-radius:16px;">
-          <h1 style="color:#a855f7;">ZAIRO</h1>
-          <h2>Entrada confirmada</h2>
+    <div style="
+      background:#050816;
+      padding:40px 20px;
+      font-family:Arial,sans-serif;
+      color:white;
+    ">
 
-          <p>Tu compra para el evento <strong>${nombreEvento}</strong> fue confirmada.</p>
-          <p><strong>Fecha:</strong> ${fechaEvento}</p>
+      <div style="
+        max-width:700px;
+        margin:auto;
+        background:linear-gradient(145deg,#0f172a,#111827);
+        border-radius:28px;
+        overflow:hidden;
+        border:1px solid rgba(255,255,255,0.08);
+      ">
 
-          <div style="text-align:center; margin:30px 0;">
-            <img src="cid:qrentrada" style="width:240px; height:240px;" />
+        <div style="
+          padding:60px 40px;
+          background:
+            radial-gradient(circle at top left, rgba(124,58,237,.45), transparent 30%),
+            radial-gradient(circle at bottom right, rgba(16,185,129,.35), transparent 30%),
+            #0b1120;
+          text-align:center;
+        ">
+
+          <div style="
+            width:90px;
+            height:90px;
+            margin:auto;
+            border-radius:50%;
+            background:linear-gradient(135deg,#7c3aed,#10b981);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            font-size:42px;
+            font-weight:900;
+          ">
+            Z
           </div>
 
-          <p style="font-size:14px; color:#cbd5e1;">
-            Código de entrada: ${codigoQR}
+          <h1 style="
+            margin:24px 0 10px;
+            font-size:42px;
+            letter-spacing:4px;
+          ">
+            ZAIRO
+          </h1>
+
+          <p style="
+            color:rgba(255,255,255,.7);
+            font-size:16px;
+            margin:0;
+          ">
+            EXPERIENCE • OFFICIAL TICKET
           </p>
 
-          <p style="font-size:13px; color:#94a3b8;">
-            Presentá este QR el día del evento. Este código es único y solo puede usarse una vez.
-          </p>
         </div>
-      </div>
-    `,
-    attachments: [
-      {
-        filename: 'entrada-zairo.png',
-        content: qrBase64.split('base64,')[1],
-        encoding: 'base64',
-        cid: 'qrentrada'
-      }
-    ]
-  });
-};
 
-module.exports = {
-  enviarEntradaPorCorreo
+        <div style="padding:40px;">
+
+          <h2 style="
+            margin-top:0;
+            font-size:30px;
+          ">
+            Compra confirmada 🔥
+          </h2>
+
+          <p style="
+            color:rgba(255,255,255,.72);
+            line-height:1.7;
+          ">
+            Tus entradas oficiales han sido confirmadas correctamente.
+            Adjuntamos los códigos QR individuales para ingresar al evento.
+          </p>
+
+          <div style="
+            margin:30px 0;
+            padding:24px;
+            border-radius:20px;
+            background:rgba(255,255,255,.05);
+            border:1px solid rgba(255,255,255,.08);
+          ">
+
+            <h3 style="margin-top:0;">
+              Información del evento
+            </h3>
+
+            <p><strong>Evento:</strong> ${evento}</p>
+            <p><strong>Entrada:</strong> ${entrada}</p>
+            <p><strong>Fecha compra:</strong> ${new Date().toLocaleString('es-CR')}</p>
+            <p><strong>Correo:</strong> ${correo}</p>
+
+          </div>
+
+          <div style="
+            margin:30px 0;
+          ">
+
+            <h3>
+              Personas registradas
+            </h3>
+
+            ${personas.map((p, index) => `
+              <div style="
+                margin-bottom:22px;
+                padding:22px;
+                border-radius:22px;
+                background:rgba(255,255,255,.05);
+                border:1px solid rgba(255,255,255,.08);
+                text-align:center;
+              ">
+
+                <div style="
+                  font-size:12px;
+                  letter-spacing:2px;
+                  color:#34d399;
+                  margin-bottom:8px;
+                  font-weight:bold;
+                ">
+                  ENTRADA #${index + 1}
+                </div>
+
+                <div style="
+                  font-size:20px;
+                  font-weight:800;
+                  margin-bottom:6px;
+                ">
+                  ${p.nombre_completo}
+                </div>
+
+                <div style="
+                  font-size:13px;
+                  color:rgba(255,255,255,.55);
+                  margin-bottom:18px;
+                ">
+                  Código QR individual de acceso
+                </div>
+
+                <img
+                  src="cid:qr${index + 1}"
+                  style="
+                    width:190px;
+                    height:190px;
+                    background:white;
+                    padding:12px;
+                    border-radius:18px;
+                    margin:auto;
+                    display:block;
+                  "
+                />
+
+                <p style="
+                  margin-top:14px;
+                  font-size:12px;
+                  color:rgba(255,255,255,.45);
+                ">
+                  Esta entrada es personal y válida para un único ingreso.
+                </p>
+
+              </div>
+            `).join('')}
+
+          </div>
+
+          <div style="
+            margin-top:40px;
+            padding:22px;
+            border-radius:18px;
+            background:rgba(16,185,129,.08);
+            border:1px solid rgba(16,185,129,.2);
+          ">
+
+            <h3 style="
+              margin-top:0;
+              color:#34d399;
+            ">
+              Información importante
+            </h3>
+
+            <ul style="
+              padding-left:18px;
+              line-height:1.8;
+              color:rgba(255,255,255,.72);
+            ">
+              <li>Presentá cada QR al ingresar.</li>
+              <li>No compartás tus códigos QR.</li>
+              <li>Se solicitará identificación.</li>
+              <li>La entrada es válida únicamente una vez.</li>
+            </ul>
+
+          </div>
+
+          <div style="
+            margin-top:40px;
+            text-align:center;
+            color:rgba(255,255,255,.4);
+            font-size:13px;
+          ">
+            ZAIRO EXPERIENCE © 2026
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+    `,
+
+    attachments
+  });
+
 };
