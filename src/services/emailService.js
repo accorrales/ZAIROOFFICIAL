@@ -52,7 +52,7 @@ const tarjetasEntradas = personas.map((p, index) => `
     </div>
 
     <img
-      src="${p.qr_base64}"
+      src="${p.qr_url}"
       alt="QR Entrada ${index + 1}"
       style="
         width:220px;

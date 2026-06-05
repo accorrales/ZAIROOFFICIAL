@@ -324,8 +324,8 @@ exports.confirmarCompra = async (req, res) => {
 
       personasConQr.push({
         nombre_completo: persona.nombre_completo,
-        qr_base64: qrBase64
-      });
+        qr_url: `${process.env.BACKEND_PUBLIC_URL}/api/compras-entradas/qr/${uuidEntrada}`
+        });
 
     }
 
@@ -486,6 +486,39 @@ exports.validarQr = async (req, res) => {
     res.status(500).json({
       valido: false,
       message: 'Error validando QR'
+    });
+  }
+};
+
+exports.obtenerQrEntrada = async (req, res) => {
+  try {
+    const { uuid } = req.params;
+
+    const result = await pool.query(
+      `
+      SELECT qr_data
+      FROM compra_entrada_detalles
+      WHERE uuid_entrada = $1
+      `,
+      [uuid]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: 'QR no encontrado'
+      });
+    }
+
+    const qrBuffer = await QRCode.toBuffer(result.rows[0].qr_data);
+
+    res.setHeader('Content-Type', 'image/png');
+    res.send(qrBuffer);
+
+  } catch (error) {
+    console.error('ERROR GENERANDO QR PUBLICO:', error);
+
+    res.status(500).json({
+      message: 'Error generando QR'
     });
   }
 };
