@@ -9,13 +9,12 @@ exports.enviarEntradas = async ({
   personas
 }) => {
 
-  const attachments = personas.map((p, index) => ({
-    filename: `Entrada-${index + 1}-${p.nombre_completo}.png`,
-    content: p.qr_base64.split(',')[1],
-    content_id: `qr${index + 1}`
-  }));
+const attachments = personas.map((p, index) => ({
+  filename: `Entrada-${index + 1}-${p.nombre_completo}.png`,
+  content: p.qr_base64.split(',')[1]
+}));
 
-  const tarjetasEntradas = personas.map((p, index) => `
+const tarjetasEntradas = personas.map((p, index) => `
   <div style="
     margin-bottom:22px;
     padding:22px;
@@ -52,19 +51,29 @@ exports.enviarEntradas = async ({
       Código QR individual de acceso
     </div>
 
-    <img
-      src="cid:qr${index + 1}"
-      alt="QR ${index + 1}"
-      style="
-        width:190px;
-        height:190px;
-        background:white;
-        padding:12px;
-        border-radius:18px;
-        margin:18px auto 0;
-        display:block;
-      "
-    />
+    <div style="
+      width:190px;
+      min-height:120px;
+      background:#ffffff;
+      color:#0f172a;
+      padding:22px 14px;
+      border-radius:18px;
+      margin:18px auto 0;
+      display:block;
+      text-align:center;
+      font-weight:800;
+      box-sizing:border-box;
+    ">
+      QR adjunto<br>
+
+      <span style="
+        font-size:13px;
+        font-weight:500;
+        color:#475569;
+      ">
+        Entrada-${index + 1}-${p.nombre_completo}.png
+      </span>
+    </div>
 
     <p style="
       margin-top:14px;
