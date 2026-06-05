@@ -11,56 +11,71 @@ exports.enviarEntradas = async ({
 
   const attachments = personas.map((p, index) => ({
     filename: `Entrada-${index + 1}-${p.nombre_completo}.png`,
-    content: p.qr_base64.split(',')[1]
+    content: p.qr_base64.split(',')[1],
+    content_id: `qr${index + 1}`
   }));
 
   const tarjetasEntradas = personas.map((p, index) => `
+  <div style="
+    margin-bottom:22px;
+    padding:22px;
+    border-radius:22px;
+    background:#111827;
+    border:1px solid #263244;
+    text-align:center;
+  ">
+
     <div style="
-      margin-bottom:22px;
-      padding:22px;
-      border-radius:22px;
-      background:#111827;
-      border:1px solid #263244;
-      text-align:center;
+      font-size:12px;
+      letter-spacing:2px;
+      color:#34d399;
+      margin-bottom:8px;
+      font-weight:bold;
     ">
-
-      <div style="
-        font-size:12px;
-        letter-spacing:2px;
-        color:#34d399;
-        margin-bottom:8px;
-        font-weight:bold;
-      ">
-        ENTRADA #${index + 1}
-      </div>
-
-      <div style="
-        font-size:20px;
-        font-weight:800;
-        margin-bottom:6px;
-        color:#ffffff;
-      ">
-        ${p.nombre_completo}
-      </div>
-
-      <div style="
-        font-size:13px;
-        color:#9ca3af;
-        margin-bottom:18px;
-      ">
-        Código QR individual adjunto a este correo.
-      </div>
-
-      <p style="
-        margin-top:14px;
-        font-size:12px;
-        color:#9ca3af;
-      ">
-        Esta entrada es personal y válida para un único ingreso.
-      </p>
-
+      ENTRADA #${index + 1}
     </div>
-  `).join('');
+
+    <div style="
+      font-size:20px;
+      font-weight:800;
+      margin-bottom:6px;
+      color:#ffffff;
+    ">
+      ${p.nombre_completo}
+    </div>
+
+    <div style="
+      font-size:13px;
+      color:#9ca3af;
+      margin-bottom:18px;
+    ">
+      Código QR individual de acceso
+    </div>
+
+    <img
+      src="cid:qr${index + 1}"
+      alt="QR ${index + 1}"
+      style="
+        width:190px;
+        height:190px;
+        background:white;
+        padding:12px;
+        border-radius:18px;
+        margin:18px auto 0;
+        display:block;
+      "
+    />
+
+    <p style="
+      margin-top:14px;
+      font-size:12px;
+      color:#9ca3af;
+    ">
+      Esta entrada es personal y válida para un único ingreso.
+    </p>
+
+  </div>
+`).join('');
 
   const { data, error } = await resend.emails.send({
     from: process.env.EMAIL_FROM || 'ZAIRO <onboarding@resend.dev>',
