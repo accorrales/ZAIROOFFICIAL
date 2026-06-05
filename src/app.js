@@ -26,8 +26,10 @@ app.use(cors({
     'http://localhost:4200',
     'https://zairo-frontend-theta.vercel.app'
   ],
-  credentials: true
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
@@ -45,39 +47,34 @@ app.use('/api/entrada-tiers', entradaTiersRoutes);
 app.use('/api/compras-entradas', comprasEntradasRoutes);
 
 app.get('/api/prueba-dashboard', (req, res) => {
-    res.json({ mensaje: 'Ruta directa funcionando' });
+  res.json({ mensaje: 'Ruta directa funcionando' });
 });
 
 app.get('/api/health', (req, res) => {
-    res.json({
-        status: 'OK',
-        message: 'Servidor funcionando'
-    });
+  res.json({
+    status: 'OK',
+    message: 'Servidor funcionando'
+  });
 });
 
 app.get('/', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW()');
 
-    try {
+    res.json({
+      mensaje: 'Backend funcionando correctamente',
+      hora_servidor: result.rows[0]
+    });
 
-        const result = await pool.query('SELECT NOW()');
+  } catch (error) {
+    console.error(error);
 
-        res.json({
-            mensaje: 'Backend funcionando correctamente',
-            hora_servidor: result.rows[0]
-        });
-
-    } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-            error: 'Error conectando con la base de datos'
-        });
-
-    }
-
+    res.status(500).json({
+      error: 'Error conectando con la base de datos'
+    });
+  }
 });
 
 app.listen(PORT, () => {
-    console.log(`Servidor corriendo en puerto ${PORT}`);
+  console.log(`Servidor corriendo en puerto ${PORT}`);
 });
