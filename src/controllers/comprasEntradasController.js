@@ -266,17 +266,13 @@ exports.confirmarCompra = async (req, res) => {
     );
 
     if (compraResult.rows.length === 0) {
-      return res.status(404).json({
-        message: 'Compra no encontrada'
-      });
+      return res.status(404).json({ message: 'Compra no encontrada' });
     }
 
     const compra = compraResult.rows[0];
 
     if (compra.estado === 'PAGADA') {
-      return res.status(400).json({
-        message: 'Esta compra ya fue confirmada'
-      });
+      return res.status(400).json({ message: 'Esta compra ya fue confirmada' });
     }
 
     const personasResult = await pool.query(
@@ -289,68 +285,45 @@ exports.confirmarCompra = async (req, res) => {
       [id]
     );
 
+    const personasConQr = [];
+
     for (const persona of personasResult.rows) {
+      const uuidEntrada = persona.uuid_entrada || uuidv4();
 
-        const uuidEntrada = persona.uuid_entrada || uuidv4();
+      const qrData = JSON.stringify({
+        tipo: 'ZAIRO_TICKET',
+        uuid: uuidEntrada,
+        id_compra: compra.id_compra,
+        id_detalle: persona.id_detalle,
+        nombre: persona.nombre_completo,
+        evento: compra.evento
+      });
 
-        const qrData = JSON.stringify({
-            tipo: 'ZAIRO_TICKET',
-            uuid: uuidEntrada,
-            id_compra: compra.id_compra,
-            id_detalle: persona.id_detalle,
-            nombre: persona.nombre_completo,
-            evento: compra.evento
-        });
+      const qrBase64 = await QRCode.toDataURL(qrData);
 
-        const nombreArchivo = `${uuidEntrada}.png`;
+      await pool.query(
+        `
+        UPDATE compra_entrada_detalles
+        SET
+          uuid_entrada = $1,
+          qr_data = $2,
+          estado = 'CONFIRMADA'
+        WHERE id_detalle = $3
+        `,
+        [uuidEntrada, qrData, persona.id_detalle]
+      );
 
-        const qrBase64 = await QRCode.toDataURL(qrData);
-
-        await pool.query(
-            `
-            UPDATE compra_entrada_detalles
-            SET
-            uuid_entrada = $1,
-            qr_data = $2,
-            estado = 'CONFIRMADA'
-            WHERE id_detalle = $3
-            `,
-            [
-            uuidEntrada,
-            qrData,
-            persona.id_detalle
-            ]
-        );
-
-        }
-
-        const personasConQr = [];
-
-        for (const persona of personasResult.rows) {
-
-        const qrDataPersona = JSON.stringify({
-            tipo: 'ZAIRO_TICKET',
-            uuid: persona.uuid_entrada,
-            id_compra: compra.id_compra,
-            id_detalle: persona.id_detalle,
-            nombre: persona.nombre_completo,
-            evento: compra.evento
-        });
-
-        const qrBase64 = await QRCode.toDataURL(qrDataPersona);
-
-        personasConQr.push({
-            nombre_completo: persona.nombre_completo,
-            qr_base64: qrBase64
-        });
-
-        }
+      personasConQr.push({
+        nombre_completo: persona.nombre_completo,
+        qr_base64: qrBase64
+      });
+    }
 
     await emailService.enviarEntradas({
-    correo: compra.correo_comprador,
-    evento: compra.evento,
-    entrada: compra.entrada,
-    personas: personasConQr
+      correo: compra.correo_comprador,
+      evento: compra.evento,
+      entrada: compra.entrada,
+      personas: personasConQr
     });
 
     const updateCompra = await pool.query(
@@ -364,13 +337,12 @@ exports.confirmarCompra = async (req, res) => {
     );
 
     res.json({
-      message: 'Compra confirmada correctamente. QR generados por entrada.',
+      message: 'Compra confirmada correctamente. QR enviados por correo.',
       compra: updateCompra.rows[0]
     });
 
   } catch (error) {
-    console.error(error);
-
+    console.error('ERROR CONFIRMANDO COMPRA:', error);
     res.status(500).json({
       message: 'Error confirmando compra'
     });
