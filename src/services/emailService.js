@@ -2,16 +2,6 @@ const { Resend } = require('resend');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
-
 exports.enviarEntradas = async ({
   correo,
   evento,
@@ -21,8 +11,7 @@ exports.enviarEntradas = async ({
 
   const attachments = personas.map((p, index) => ({
     filename: `Entrada-${index + 1}-${p.nombre_completo}.png`,
-    content: Buffer.from(p.qr_base64.split(',')[1], 'base64'),
-    cid: `qr${index + 1}`
+    content: p.qr_base64.split(',')[1]
   }));
 
   const tarjetasEntradas = personas.map((p, index) => `
@@ -30,8 +19,8 @@ exports.enviarEntradas = async ({
       margin-bottom:22px;
       padding:22px;
       border-radius:22px;
-      background:rgba(255,255,255,.05);
-      border:1px solid rgba(255,255,255,.08);
+      background:#111827;
+      border:1px solid #263244;
       text-align:center;
     ">
 
@@ -56,30 +45,16 @@ exports.enviarEntradas = async ({
 
       <div style="
         font-size:13px;
-        color:rgba(255,255,255,.55);
+        color:#9ca3af;
         margin-bottom:18px;
       ">
-        Código QR individual de acceso
+        Código QR individual adjunto a este correo.
       </div>
-
-      <img
-        src="cid:qr${index + 1}"
-        alt="QR ${index + 1}"
-        style="
-          width:190px;
-          height:190px;
-          background:white;
-          padding:12px;
-          border-radius:18px;
-          margin:auto;
-          display:block;
-        "
-      />
 
       <p style="
         margin-top:14px;
         font-size:12px;
-        color:rgba(255,255,255,.45);
+        color:#9ca3af;
       ">
         Esta entrada es personal y válida para un único ingreso.
       </p>
@@ -87,9 +62,9 @@ exports.enviarEntradas = async ({
     </div>
   `).join('');
 
-  await transporter.sendMail({
-    from: `"ZAIRO" <${process.env.EMAIL_USER}>`,
-    to: correo,
+  const { data, error } = await resend.emails.send({
+    from: process.env.EMAIL_FROM || 'ZAIRO <onboarding@resend.dev>',
+    to: [correo],
     subject: `Tus entradas para ${evento}`,
 
     html: `
@@ -103,18 +78,15 @@ exports.enviarEntradas = async ({
         <div style="
           max-width:700px;
           margin:auto;
-          background:linear-gradient(145deg,#0f172a,#111827);
+          background:#0f172a;
           border-radius:28px;
           overflow:hidden;
-          border:1px solid rgba(255,255,255,0.08);
+          border:1px solid #263244;
         ">
 
           <div style="
             padding:60px 40px;
-            background:
-              radial-gradient(circle at top left, rgba(124,58,237,.45), transparent 30%),
-              radial-gradient(circle at bottom right, rgba(16,185,129,.35), transparent 30%),
-              #0b1120;
+            background:#0b1120;
             text-align:center;
           ">
 
@@ -124,11 +96,9 @@ exports.enviarEntradas = async ({
               margin:auto;
               border-radius:50%;
               background:linear-gradient(135deg,#7c3aed,#10b981);
-              display:flex;
-              align-items:center;
-              justify-content:center;
               font-size:42px;
               font-weight:900;
+              line-height:90px;
               color:#ffffff;
             ">
               Z
@@ -144,7 +114,7 @@ exports.enviarEntradas = async ({
             </h1>
 
             <p style="
-              color:rgba(255,255,255,.7);
+              color:#9ca3af;
               font-size:16px;
               margin:0;
             ">
@@ -164,19 +134,19 @@ exports.enviarEntradas = async ({
             </h2>
 
             <p style="
-              color:rgba(255,255,255,.72);
+              color:#cbd5e1;
               line-height:1.7;
             ">
               Tus entradas oficiales han sido confirmadas correctamente.
-              Cada persona registrada tiene su propio código QR individual de acceso.
+              Cada persona registrada tiene su propio código QR individual.
             </p>
 
             <div style="
               margin:30px 0;
               padding:24px;
               border-radius:20px;
-              background:rgba(255,255,255,.05);
-              border:1px solid rgba(255,255,255,.08);
+              background:#111827;
+              border:1px solid #263244;
               color:#ffffff;
             ">
 
@@ -203,8 +173,8 @@ exports.enviarEntradas = async ({
               margin-top:40px;
               padding:22px;
               border-radius:18px;
-              background:rgba(16,185,129,.08);
-              border:1px solid rgba(16,185,129,.2);
+              background:#052e2b;
+              border:1px solid #064e3b;
             ">
 
               <h3 style="
@@ -217,7 +187,7 @@ exports.enviarEntradas = async ({
               <ul style="
                 padding-left:18px;
                 line-height:1.8;
-                color:rgba(255,255,255,.72);
+                color:#cbd5e1;
               ">
                 <li>Presentá el QR correspondiente a cada persona.</li>
                 <li>No compartás tus códigos QR.</li>
@@ -230,7 +200,7 @@ exports.enviarEntradas = async ({
             <div style="
               margin-top:40px;
               text-align:center;
-              color:rgba(255,255,255,.4);
+              color:#64748b;
               font-size:13px;
             ">
               ZAIRO EXPERIENCE © 2026
@@ -244,7 +214,11 @@ exports.enviarEntradas = async ({
     `,
 
     attachments
-
   });
 
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
 };
