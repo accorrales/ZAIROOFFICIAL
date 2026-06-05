@@ -51,29 +51,20 @@ const tarjetasEntradas = personas.map((p, index) => `
       Código QR individual de acceso
     </div>
 
-    <div style="
-      width:190px;
-      min-height:120px;
-      background:#ffffff;
-      color:#0f172a;
-      padding:22px 14px;
-      border-radius:18px;
-      margin:18px auto 0;
-      display:block;
-      text-align:center;
-      font-weight:800;
-      box-sizing:border-box;
-    ">
-      QR adjunto<br>
-
-      <span style="
-        font-size:13px;
-        font-weight:500;
-        color:#475569;
-      ">
-        Entrada-${index + 1}-${p.nombre_completo}.png
-      </span>
-    </div>
+    <img
+      src="${p.qr_base64}"
+      alt="QR Entrada ${index + 1}"
+      style="
+        width:220px;
+        height:220px;
+        background:#ffffff;
+        padding:14px;
+        border-radius:18px;
+        margin:18px auto 0;
+        display:block;
+        box-sizing:border-box;
+      "
+    />
 
     <p style="
       margin-top:14px;
