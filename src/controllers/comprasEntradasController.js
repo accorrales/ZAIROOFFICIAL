@@ -304,25 +304,7 @@ exports.confirmarCompra = async (req, res) => {
 
         const nombreArchivo = `${uuidEntrada}.png`;
 
-        const rutaQr = path.join(
-            __dirname,
-            '..',
-            'uploads',
-            'qrs',
-            nombreArchivo
-        );
-
-        try {   
-
-            await QRCode.toFile(rutaQr, qrData);
-
-            console.log('QR generado:', rutaQr);
-
-            } catch (qrError) {
-
-            console.error('Error generando QR:', qrError);
-
-        }
+        const qrBase64 = await QRCode.toDataURL(qrData);
 
         await pool.query(
             `
@@ -342,16 +324,27 @@ exports.confirmarCompra = async (req, res) => {
 
         }
 
-    const personasConQr = personasResult.rows.map(p => ({
-    nombre_completo: p.nombre_completo,
-    ruta_qr: path.join(
-        __dirname,
-        '..',
-        'uploads',
-        'qrs',
-        `${p.uuid_entrada || ''}.png`
-    )
-    }));
+        const personasConQr = [];
+
+        for (const persona of personasResult.rows) {
+
+        const qrDataPersona = JSON.stringify({
+            tipo: 'ZAIRO_TICKET',
+            uuid: persona.uuid_entrada,
+            id_compra: compra.id_compra,
+            id_detalle: persona.id_detalle,
+            nombre: persona.nombre_completo,
+            evento: compra.evento
+        });
+
+        const qrBase64 = await QRCode.toDataURL(qrDataPersona);
+
+        personasConQr.push({
+            nombre_completo: persona.nombre_completo,
+            qr_base64: qrBase64
+        });
+
+        }
 
     await emailService.enviarEntradas({
     correo: compra.correo_comprador,
