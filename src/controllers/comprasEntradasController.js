@@ -266,13 +266,17 @@ exports.confirmarCompra = async (req, res) => {
     );
 
     if (compraResult.rows.length === 0) {
-      return res.status(404).json({ message: 'Compra no encontrada' });
+      return res.status(404).json({
+        message: 'Compra no encontrada'
+      });
     }
 
     const compra = compraResult.rows[0];
 
     if (compra.estado === 'PAGADA') {
-      return res.status(400).json({ message: 'Esta compra ya fue confirmada' });
+      return res.status(400).json({
+        message: 'Esta compra ya fue confirmada'
+      });
     }
 
     const personasResult = await pool.query(
@@ -310,7 +314,11 @@ exports.confirmarCompra = async (req, res) => {
           estado = 'CONFIRMADA'
         WHERE id_detalle = $3
         `,
-        [uuidEntrada, qrData, persona.id_detalle]
+        [
+          uuidEntrada,
+          qrData,
+          persona.id_detalle
+        ]
       );
 
       personasConQr.push({
@@ -319,12 +327,16 @@ exports.confirmarCompra = async (req, res) => {
       });
     }
 
-    await emailService.enviarEntradas({
-      correo: compra.correo_comprador,
-      evento: compra.evento,
-      entrada: compra.entrada,
-      personas: personasConQr
-    });
+    try {
+      await emailService.enviarEntradas({
+        correo: compra.correo_comprador,
+        evento: compra.evento,
+        entrada: compra.entrada,
+        personas: personasConQr
+      });
+    } catch (emailError) {
+      console.error('ERROR ENVIANDO CORREO:', emailError.message);
+    }
 
     const updateCompra = await pool.query(
       `
@@ -337,14 +349,17 @@ exports.confirmarCompra = async (req, res) => {
     );
 
     res.json({
-      message: 'Compra confirmada correctamente. QR enviados por correo.',
+      message: 'Compra confirmada correctamente. QR generados.',
       compra: updateCompra.rows[0]
     });
 
   } catch (error) {
     console.error('ERROR CONFIRMANDO COMPRA:', error);
+
     res.status(500).json({
-      message: 'Error confirmando compra'
+      message: 'Error confirmando compra',
+      error: error.message,
+      code: error.code || null
     });
   }
 };
