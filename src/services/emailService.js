@@ -17,6 +17,12 @@ exports.enviarEntradas = async ({
   personas
 }) => {
 
+  const attachments = personas.map((p, index) => ({
+    filename: `Entrada-${index + 1}-${p.nombre_completo}.png`,
+    content: Buffer.from(p.qr_base64.split(',')[1], 'base64'),
+    cid: `qr${index + 1}`
+  }));
+
   const tarjetasEntradas = personas.map((p, index) => `
     <div style="
       margin-bottom:22px;
@@ -55,7 +61,7 @@ exports.enviarEntradas = async ({
       </div>
 
       <img
-        src="${p.qr_base64}"
+        src="cid:qr${index + 1}"
         alt="QR ${index + 1}"
         style="
           width:190px;
@@ -233,7 +239,10 @@ exports.enviarEntradas = async ({
         </div>
 
       </div>
-    `
+    `,
+
+    attachments
+
   });
 
 };
