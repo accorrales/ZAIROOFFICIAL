@@ -9,73 +9,68 @@ exports.enviarEntradas = async ({
   personas
 }) => {
 
-const attachments = personas.map((p, index) => ({
-  filename: `Entrada-${index + 1}-${p.nombre_completo}.png`,
-  content: p.qr_base64.split(',')[1]
-}));
-
-const tarjetasEntradas = personas.map((p, index) => `
-  <div style="
-    margin-bottom:22px;
-    padding:22px;
-    border-radius:22px;
-    background:#111827;
-    border:1px solid #263244;
-    text-align:center;
-  ">
-
+  const tarjetasEntradas = personas.map((p, index) => `
     <div style="
-      font-size:12px;
-      letter-spacing:2px;
-      color:#34d399;
-      margin-bottom:8px;
-      font-weight:bold;
+      margin-bottom:22px;
+      padding:22px;
+      border-radius:22px;
+      background:#111827;
+      border:1px solid #263244;
+      text-align:center;
     ">
-      ENTRADA #${index + 1}
+
+      <div style="
+        font-size:12px;
+        letter-spacing:2px;
+        color:#34d399;
+        margin-bottom:8px;
+        font-weight:bold;
+      ">
+        ENTRADA #${index + 1}
+      </div>
+
+      <div style="
+        font-size:20px;
+        font-weight:800;
+        margin-bottom:6px;
+        color:#ffffff;
+      ">
+        ${p.nombre_completo}
+      </div>
+
+      <div style="
+        font-size:13px;
+        color:#9ca3af;
+        margin-bottom:18px;
+      ">
+        Código QR individual de acceso
+      </div>
+
+      <img
+        src="${p.qr_url}"
+        alt="QR Entrada ${index + 1}"
+        style="
+          width:220px;
+          height:220px;
+          background:#ffffff;
+          padding:14px;
+          border-radius:18px;
+          margin:18px auto 0;
+          display:block;
+          box-sizing:border-box;
+        "
+      />
+
+      <p style="
+        margin-top:14px;
+        font-size:12px;
+        color:#9ca3af;
+      ">
+        Esta entrada es personal y válida para un único ingreso.
+      </p>
+
     </div>
-
-    <div style="
-      font-size:20px;
-      font-weight:800;
-      margin-bottom:6px;
-      color:#ffffff;
-    ">
-      ${p.nombre_completo}
-    </div>
-
-    <div style="
-      font-size:13px;
-      color:#9ca3af;
-      margin-bottom:18px;
-    ">
-      Código QR individual de acceso
-    </div>
-
-    <img
-      src="${p.qr_url}"
-      alt="QR Entrada ${index + 1}"
-      style="
-        width:220px;
-        height:220px;
-        background:#ffffff;
-        padding:14px;
-        border-radius:18px;
-        margin:18px auto 0;
-        display:block;
-        box-sizing:border-box;
-      "
-    />
-
-    <p style="
-      margin-top:14px;
-      font-size:12px;
-      color:#9ca3af;
-    ">
-      Esta entrada es personal y válida para un único ingreso.
-    </p>
-
-  </div>
-`).join('');
+  `).join('');
 
   const { data, error } = await resend.emails.send({
     from: process.env.EMAIL_FROM || 'ZAIRO <onboarding@resend.dev>',
@@ -226,9 +221,7 @@ const tarjetasEntradas = personas.map((p, index) => `
         </div>
 
       </div>
-    `,
-
-    attachments
+    `
   });
 
   if (error) {
