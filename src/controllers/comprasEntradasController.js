@@ -2,8 +2,6 @@ const pool = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 
 const QRCode = require('qrcode');
-const path = require('path');
-const fs = require('fs');
 
 const emailService = require('../services/emailService');
 
@@ -247,6 +245,7 @@ exports.obtenerCompraPorId = async (req, res) => {
 
 exports.confirmarCompra = async (req, res) => {
   try {
+
     const { id } = req.params;
 
     const compraResult = await pool.query(
@@ -292,7 +291,8 @@ exports.confirmarCompra = async (req, res) => {
     const personasConQr = [];
 
     for (const persona of personasResult.rows) {
-      const uuidEntrada = persona.uuid_entrada || uuidv4();
+
+      const uuidEntrada = uuidv4();
 
       const qrData = JSON.stringify({
         tipo: 'ZAIRO_TICKET',
@@ -303,6 +303,7 @@ exports.confirmarCompra = async (req, res) => {
         evento: compra.evento
       });
 
+      // QR en BASE64
       const qrBase64 = await QRCode.toDataURL(qrData);
 
       await pool.query(
@@ -325,18 +326,15 @@ exports.confirmarCompra = async (req, res) => {
         nombre_completo: persona.nombre_completo,
         qr_base64: qrBase64
       });
+
     }
 
-    try {
-      await emailService.enviarEntradas({
-        correo: compra.correo_comprador,
-        evento: compra.evento,
-        entrada: compra.entrada,
-        personas: personasConQr
-      });
-    } catch (emailError) {
-      console.error('ERROR ENVIANDO CORREO:', emailError.message);
-    }
+    await emailService.enviarEntradas({
+      correo: compra.correo_comprador,
+      evento: compra.evento,
+      entrada: compra.entrada,
+      personas: personasConQr
+    });
 
     const updateCompra = await pool.query(
       `
@@ -349,18 +347,18 @@ exports.confirmarCompra = async (req, res) => {
     );
 
     res.json({
-      message: 'Compra confirmada correctamente. QR generados.',
+      message: 'Compra confirmada correctamente',
       compra: updateCompra.rows[0]
     });
 
   } catch (error) {
+
     console.error('ERROR CONFIRMANDO COMPRA:', error);
 
     res.status(500).json({
-      message: 'Error confirmando compra',
-      error: error.message,
-      code: error.code || null
+      message: error.message || 'Error confirmando compra'
     });
+
   }
 };
 
