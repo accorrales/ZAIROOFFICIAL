@@ -364,7 +364,28 @@ exports.confirmarCompra = async (req, res) => {
 
   }
 };
+exports.testEmail = async (req, res) => {
+  try {
+    await emailService.enviarEntradas({
+      correo: 'indiscretoinfo@gmail.com',
+      evento: 'Prueba ZAIRO',
+      entrada: 'Test Ticket',
+      personas: [
+        {
+          nombre_completo: 'Prueba QR',
+          qr_url: `${process.env.BACKEND_PUBLIC_URL}/api/health`
+        }
+      ]
+    });
 
+    res.json({ message: 'Correo de prueba enviado' });
+  } catch (error) {
+    console.error('ERROR TEST EMAIL:', error);
+    res.status(500).json({
+      message: error.message
+    });
+  }
+};
 exports.rechazarCompra = async (req, res) => {
   try {
     const { id } = req.params;
