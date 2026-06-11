@@ -329,6 +329,9 @@ exports.confirmarCompra = async (req, res) => {
 
     }
 
+    console.log('LLAMANDO EMAIL SERVICE PARA COMPRA:', compra.id_compra);
+    console.log('PERSONAS CON QR:', personasConQr);
+
     await emailService.enviarEntradas({
       correo: compra.correo_comprador,
       evento: compra.evento,
