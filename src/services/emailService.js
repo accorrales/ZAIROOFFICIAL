@@ -31,16 +31,16 @@ exports.enviarEntradas = async ({
       from: process.env.EMAIL_FROM,
       to: [correo],
       subject: `Tus entradas para ${evento}`,
-      html: html
+      html: `
+        ...
+      `
     });
 
-    console.log('==============================');
     console.log('RESPUESTA RESEND DATA:', data);
     console.log('RESPUESTA RESEND ERROR:', error);
-    console.log('==============================');
 
     if (error) {
-      throw new Error(error.message);
+      throw new Error(error.message || JSON.stringify(error));
     }
 
     return data;

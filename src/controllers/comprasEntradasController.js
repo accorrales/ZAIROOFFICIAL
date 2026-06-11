@@ -332,21 +332,12 @@ exports.confirmarCompra = async (req, res) => {
     console.log('LLAMANDO EMAIL SERVICE PARA COMPRA:', compra.id_compra);
     console.log('PERSONAS CON QR:', personasConQr);
 
-    try {
-      console.log('LLAMANDO EMAIL SERVICE PARA COMPRA:', compra.id_compra);
-      console.log('PERSONAS CON QR:', personasConQr);
-
-      await emailService.enviarEntradas({
-        correo: compra.correo_comprador,
-        evento: compra.evento,
-        entrada: compra.entrada,
-        personas: personasConQr
-      });
-
-      console.log('CORREO ENVIADO CORRECTAMENTE');
-    } catch (emailError) {
-      console.error('ERROR ENVIANDO CORREO:', emailError.message);
-    }
+    await emailService.enviarEntradas({
+      correo: compra.correo_comprador,
+      evento: compra.evento,
+      entrada: compra.entrada,
+      personas: personasConQr
+    });
 
     const updateCompra = await pool.query(
       `
