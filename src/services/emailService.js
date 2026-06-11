@@ -23,21 +23,15 @@ exports.enviarEntradas = async ({
     console.log('CANTIDAD PERSONAS:', personas.length);
     console.log('=================================');
 
-    const attachments = personas.map((p, index) => ({
-      filename: `Entrada-${index + 1}-${p.nombre_completo}.png`,
-      content: p.qr_base64.split(',')[1]
-    }));
-
     const tarjetasEntradas = personas.map((p, index) => `
       ...
     `).join('');
 
     const { data, error } = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'ZAIRO <onboarding@resend.dev>',
+      from: process.env.EMAIL_FROM,
       to: [correo],
       subject: `Tus entradas para ${evento}`,
-      html: `...`,
-      attachments
+      html: html
     });
 
     console.log('==============================');
