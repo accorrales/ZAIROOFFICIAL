@@ -9,43 +9,6 @@ exports.enviarEntradas = async ({
   personas
 }) => {
 
-  exports.enviarEntradas = async ({
-  correo,
-  evento,
-  entrada,
-  personas
-}) => {
-
-    console.log('=================================');
-    console.log('ENVIANDO CORREO CON RESEND A:', correo);
-    console.log('EMAIL_FROM:', process.env.EMAIL_FROM);
-    console.log('RESEND_API_KEY EXISTE:', !!process.env.RESEND_API_KEY);
-    console.log('CANTIDAD PERSONAS:', personas.length);
-    console.log('=================================');
-
-    const tarjetasEntradas = personas.map((p, index) => `
-      ...
-    `).join('');
-
-    const { data, error } = await resend.emails.send({
-      from: process.env.EMAIL_FROM,
-      to: [correo],
-      subject: `Tus entradas para ${evento}`,
-      html: `
-        ...
-      `
-    });
-
-    console.log('RESPUESTA RESEND DATA:', data);
-    console.log('RESPUESTA RESEND ERROR:', error);
-
-    if (error) {
-      throw new Error(error.message || JSON.stringify(error));
-    }
-
-    return data;
-  };
-
   const tarjetasEntradas = personas.map((p, index) => `
     <div style="
       margin-bottom:22px;
