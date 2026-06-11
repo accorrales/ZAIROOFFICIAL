@@ -24,7 +24,9 @@ const PORT = process.env.PORT || 3000;
 app.use(cors({
   origin: [
     'http://localhost:4200',
-    'https://zairo-frontend-theta.vercel.app'
+    'https://zairo-frontend-theta.vercel.app',
+    'https://zairoclub.com',
+    'https://www.zairoclub.com'
   ],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
