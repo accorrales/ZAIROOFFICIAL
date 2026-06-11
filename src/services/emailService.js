@@ -9,6 +9,49 @@ exports.enviarEntradas = async ({
   personas
 }) => {
 
+  exports.enviarEntradas = async ({
+  correo,
+  evento,
+  entrada,
+  personas
+}) => {
+
+    console.log('=================================');
+    console.log('ENVIANDO CORREO CON RESEND A:', correo);
+    console.log('EMAIL_FROM:', process.env.EMAIL_FROM);
+    console.log('RESEND_API_KEY EXISTE:', !!process.env.RESEND_API_KEY);
+    console.log('CANTIDAD PERSONAS:', personas.length);
+    console.log('=================================');
+
+    const attachments = personas.map((p, index) => ({
+      filename: `Entrada-${index + 1}-${p.nombre_completo}.png`,
+      content: p.qr_base64.split(',')[1]
+    }));
+
+    const tarjetasEntradas = personas.map((p, index) => `
+      ...
+    `).join('');
+
+    const { data, error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM || 'ZAIRO <onboarding@resend.dev>',
+      to: [correo],
+      subject: `Tus entradas para ${evento}`,
+      html: `...`,
+      attachments
+    });
+
+    console.log('==============================');
+    console.log('RESPUESTA RESEND DATA:', data);
+    console.log('RESPUESTA RESEND ERROR:', error);
+    console.log('==============================');
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
+  };
+
   const tarjetasEntradas = personas.map((p, index) => `
     <div style="
       margin-bottom:22px;
