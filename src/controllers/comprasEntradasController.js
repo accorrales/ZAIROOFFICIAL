@@ -294,17 +294,7 @@ exports.confirmarCompra = async (req, res) => {
 
       const uuidEntrada = uuidv4();
 
-      const qrData = JSON.stringify({
-        tipo: 'ZAIRO_TICKET',
-        uuid: uuidEntrada,
-        id_compra: compra.id_compra,
-        id_detalle: persona.id_detalle,
-        nombre: persona.nombre_completo,
-        evento: compra.evento
-      });
-
-      // QR en BASE64
-      const qrBase64 = await QRCode.toDataURL(qrData);
+      const qrData = `${process.env.FRONTEND_PUBLIC_URL}/t/${uuidEntrada}`;
 
       await pool.query(
         `
@@ -325,7 +315,7 @@ exports.confirmarCompra = async (req, res) => {
       personasConQr.push({
         nombre_completo: persona.nombre_completo,
         qr_url: `${process.env.BACKEND_PUBLIC_URL}/api/compras-entradas/qr/${uuidEntrada}`
-        });
+      });
 
     }
 
@@ -349,7 +339,7 @@ exports.confirmarCompra = async (req, res) => {
       [id]
     );
 
-    res.json({
+    return res.json({
       message: 'Compra confirmada correctamente',
       compra: updateCompra.rows[0]
     });
@@ -358,7 +348,7 @@ exports.confirmarCompra = async (req, res) => {
 
     console.error('ERROR CONFIRMANDO COMPRA:', error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message || 'Error confirmando compra'
     });
 
@@ -430,24 +420,79 @@ exports.validarQr = async (req, res) => {
       });
     }
 
-    let data;
+    let uuidEntrada = null;
 
+    // 1. Intentar leer QR viejo en formato JSON
     try {
-      data = JSON.parse(qr_data);
+      const data = JSON.parse(qr_data);
+
+      if (data.tipo === 'ZAIRO_TICKET' && data.uuid) {
+        uuidEntrada = data.uuid;
+      }
     } catch {
+      // 2. Si no es JSON, intentar leer QR nuevo en formato URL
+      const match = qr_data.match(/\/t\/([a-f0-9-]+)/i);
+
+      if (match && match[1]) {
+        uuidEntrada = match[1];
+      }
+    }
+
+    // 3. Validar que exista UUID y que tenga formato correcto
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    if (!uuidEntrada || !uuidRegex.test(uuidEntrada)) {
       return res.status(400).json({
         valido: false,
         message: 'QR inválido'
       });
     }
 
-    const result = await pool.query(
+    // 4. Validación atómica: solo marca USADA si estaba CONFIRMADA
+    const updateResult = await pool.query(
+      `
+      UPDATE compra_entrada_detalles d
+      SET
+        estado = 'USADA',
+        fecha_ingreso = NOW()
+      FROM compras_entradas c
+      INNER JOIN eventos e ON e.id_evento = c.id_evento
+      INNER JOIN entrada_tiers t ON t.id_tier = c.id_tier
+      WHERE d.id_compra = c.id_compra
+        AND d.uuid_entrada = $1
+        AND d.estado = 'CONFIRMADA'
+      RETURNING
+        d.id_detalle,
+        d.nombre_completo,
+        d.estado,
+        d.uuid_entrada,
+        d.fecha_ingreso,
+        c.id_compra,
+        e.nombre AS evento,
+        e.fecha AS fecha_evento,
+        t.nombre AS entrada
+      `,
+      [uuidEntrada]
+    );
+
+    if (updateResult.rows.length > 0) {
+      return res.json({
+        valido: true,
+        message: 'Entrada válida. Acceso permitido.',
+        entrada: updateResult.rows[0]
+      });
+    }
+
+    // 5. Si no actualizó, revisar si existe y por qué falló
+    const checkResult = await pool.query(
       `
       SELECT
         d.id_detalle,
         d.nombre_completo,
         d.estado,
         d.uuid_entrada,
+        d.fecha_ingreso,
         c.id_compra,
         e.nombre AS evento,
         e.fecha AS fecha_evento,
@@ -458,17 +503,17 @@ exports.validarQr = async (req, res) => {
       INNER JOIN entrada_tiers t ON t.id_tier = c.id_tier
       WHERE d.uuid_entrada = $1
       `,
-      [data.uuid]
+      [uuidEntrada]
     );
 
-    if (result.rows.length === 0) {
+    if (checkResult.rows.length === 0) {
       return res.status(404).json({
         valido: false,
         message: 'Entrada no encontrada'
       });
     }
 
-    const entrada = result.rows[0];
+    const entrada = checkResult.rows[0];
 
     if (entrada.estado === 'USADA') {
       return res.status(400).json({
@@ -478,36 +523,16 @@ exports.validarQr = async (req, res) => {
       });
     }
 
-    if (entrada.estado !== 'CONFIRMADA') {
-      return res.status(400).json({
-        valido: false,
-        message: 'Entrada no confirmada',
-        entrada
-      });
-    }
-
-    await pool.query(
-      `
-      UPDATE compra_entrada_detalles
-      SET estado = 'USADA'
-      WHERE id_detalle = $1
-      `,
-      [entrada.id_detalle]
-    );
-
-    return res.json({
-      valido: true,
-      message: 'Entrada válida. Acceso permitido.',
-      entrada: {
-        ...entrada,
-        estado: 'USADA'
-      }
+    return res.status(400).json({
+      valido: false,
+      message: 'Entrada no confirmada',
+      entrada
     });
 
   } catch (error) {
-    console.error(error);
+    console.error('ERROR VALIDANDO QR:', error);
 
-    res.status(500).json({
+    return res.status(500).json({
       valido: false,
       message: 'Error validando QR'
     });
