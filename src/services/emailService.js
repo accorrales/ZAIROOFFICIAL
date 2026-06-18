@@ -2,36 +2,56 @@ const { Resend } = require('resend');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+const getLogoUrl = () => {
+  const frontendUrl = (process.env.FRONTEND_PUBLIC_URL || '').replace(/\/$/, '');
+
+  return (
+    process.env.ZAIRO_LOGO_URL ||
+    `${frontendUrl}/assets/zairo-loader-logo.png`
+  );
+};
+
 exports.enviarEntradas = async ({
   correo,
   evento,
   entrada,
   personas
 }) => {
+  const logoUrl = getLogoUrl();
 
   const tarjetasEntradas = personas.map((p, index) => `
     <div style="
-      margin-bottom:22px;
-      padding:22px;
-      border-radius:22px;
-      background:#111827;
-      border:1px solid #263244;
+      margin-bottom:24px;
+      padding:24px;
+      border-radius:26px;
+      background:
+        radial-gradient(circle at top, rgba(196,255,87,0.10), transparent 45%),
+        #07120b;
+      border:1px solid rgba(196,255,87,0.24);
       text-align:center;
+      box-shadow:
+        0 18px 42px rgba(0,0,0,0.28),
+        inset 0 0 30px rgba(255,214,10,0.04);
     ">
 
       <div style="
-        font-size:12px;
+        display:inline-block;
+        padding:7px 12px;
+        border-radius:999px;
+        background:rgba(196,255,87,0.10);
+        border:1px solid rgba(196,255,87,0.28);
+        font-size:11px;
         letter-spacing:2px;
-        color:#34d399;
-        margin-bottom:8px;
-        font-weight:bold;
+        color:#c6ff57;
+        margin-bottom:12px;
+        font-weight:800;
       ">
         ENTRADA #${index + 1}
       </div>
 
       <div style="
-        font-size:20px;
-        font-weight:800;
+        font-size:21px;
+        font-weight:900;
         margin-bottom:6px;
         color:#ffffff;
       ">
@@ -40,31 +60,42 @@ exports.enviarEntradas = async ({
 
       <div style="
         font-size:13px;
-        color:#9ca3af;
+        color:#b8c7a5;
         margin-bottom:18px;
       ">
         Código QR individual de acceso
       </div>
 
-      <img
-        src="${p.qr_url}"
-        alt="QR Entrada ${index + 1}"
-        style="
-          width:220px;
-          height:220px;
-          background:#ffffff;
-          padding:14px;
-          border-radius:18px;
-          margin:18px auto 0;
-          display:block;
-          box-sizing:border-box;
-        "
-      />
+      <div style="
+        width:248px;
+        margin:20px auto 0;
+        padding:12px;
+        border-radius:24px;
+        background:
+          linear-gradient(135deg, rgba(198,255,87,0.95), rgba(255,214,10,0.95));
+        box-shadow:
+          0 0 28px rgba(198,255,87,0.18),
+          0 0 38px rgba(255,214,10,0.12);
+      ">
+        <img
+          src="${p.qr_url}"
+          alt="QR Entrada ${index + 1}"
+          style="
+            width:220px;
+            height:220px;
+            background:#ffffff;
+            padding:12px;
+            border-radius:18px;
+            display:block;
+            box-sizing:border-box;
+          "
+        />
+      </div>
 
       <p style="
-        margin-top:14px;
+        margin-top:16px;
         font-size:12px;
-        color:#9ca3af;
+        color:#8fa27d;
       ">
         Esta entrada es personal y válida para un único ingreso.
       </p>
@@ -75,104 +106,173 @@ exports.enviarEntradas = async ({
   const { data, error } = await resend.emails.send({
     from: process.env.EMAIL_FROM || 'ZAIRO <onboarding@resend.dev>',
     to: [correo],
-    subject: `Tus entradas para ${evento}`,
+    subject: `Tus entradas oficiales para ${evento}`,
 
     html: `
       <div style="
-        background:#050816;
-        padding:40px 20px;
-        font-family:Arial,sans-serif;
-        color:white;
+        margin:0;
+        padding:44px 18px;
+        background:
+          radial-gradient(circle at top left, rgba(198,255,87,0.16), transparent 28%),
+          radial-gradient(circle at top right, rgba(255,214,10,0.14), transparent 30%),
+          linear-gradient(180deg, #020403 0%, #061008 42%, #020403 100%);
+        font-family:Arial, Helvetica, sans-serif;
+        color:#ffffff;
       ">
 
         <div style="
-          max-width:700px;
-          margin:auto;
-          background:#0f172a;
-          border-radius:28px;
+          max-width:720px;
+          margin:0 auto;
+          background:
+            linear-gradient(180deg, rgba(7,18,11,0.98), rgba(3,10,6,0.98));
+          border-radius:32px;
           overflow:hidden;
-          border:1px solid #263244;
+          border:1px solid rgba(198,255,87,0.22);
+          box-shadow:
+            0 28px 80px rgba(0,0,0,0.45),
+            0 0 55px rgba(198,255,87,0.08);
         ">
 
           <div style="
-            padding:60px 40px;
-            background:#0b1120;
+            padding:54px 32px 44px;
+            background:
+              radial-gradient(circle at center top, rgba(198,255,87,0.18), transparent 42%),
+              linear-gradient(135deg, #07120b 0%, #020403 100%);
             text-align:center;
+            border-bottom:1px solid rgba(198,255,87,0.16);
           ">
 
             <div style="
-              width:90px;
-              height:90px;
-              margin:auto;
-              border-radius:50%;
-              background:linear-gradient(135deg,#7c3aed,#10b981);
-              font-size:42px;
-              font-weight:900;
-              line-height:90px;
-              color:#ffffff;
+              width:112px;
+              height:112px;
+              margin:0 auto;
+              border-radius:28px;
+              background:
+                radial-gradient(circle at top, rgba(198,255,87,0.18), transparent 55%),
+                rgba(3,14,8,0.92);
+              border:1px solid rgba(198,255,87,0.38);
+              box-shadow:
+                0 0 28px rgba(198,255,87,0.20),
+                0 0 44px rgba(255,214,10,0.10),
+                inset 0 0 24px rgba(255,255,255,0.04);
+              padding:10px;
+              box-sizing:border-box;
             ">
-              Z
+              <img
+                src="${logoUrl}"
+                alt="Logo ZAIRO"
+                style="
+                  width:100%;
+                  height:100%;
+                  object-fit:contain;
+                  display:block;
+                  border-radius:20px;
+                "
+              />
             </div>
 
             <h1 style="
-              margin:24px 0 10px;
-              font-size:42px;
-              letter-spacing:4px;
+              margin:24px 0 8px;
+              font-size:44px;
+              letter-spacing:5px;
+              line-height:1;
               color:#ffffff;
             ">
               ZAIRO
             </h1>
 
             <p style="
-              color:#9ca3af;
-              font-size:16px;
+              color:#c6ff57;
+              font-size:13px;
+              letter-spacing:3px;
+              font-weight:800;
               margin:0;
             ">
-              EXPERIENCE • OFFICIAL TICKET
+              LOST TRIP • OFFICIAL ACCESS
             </p>
 
           </div>
 
-          <div style="padding:40px;">
+          <div style="padding:42px 34px;">
+
+            <div style="
+              display:inline-block;
+              padding:8px 13px;
+              border-radius:999px;
+              background:rgba(255,214,10,0.10);
+              border:1px solid rgba(255,214,10,0.25);
+              color:#ffd60a;
+              font-size:11px;
+              letter-spacing:2px;
+              font-weight:900;
+              margin-bottom:16px;
+            ">
+              COMPRA CONFIRMADA
+            </div>
 
             <h2 style="
-              margin-top:0;
-              font-size:30px;
+              margin:0 0 14px;
+              font-size:32px;
+              line-height:1.1;
               color:#ffffff;
             ">
-              Compra confirmada 🔥
+              Tus entradas ya están listas 🔥
             </h2>
 
             <p style="
-              color:#cbd5e1;
-              line-height:1.7;
+              color:#cbd5c1;
+              line-height:1.75;
+              font-size:15px;
+              margin:0;
             ">
-              Tus entradas oficiales han sido confirmadas correctamente.
-              Cada persona registrada tiene su propio código QR individual.
+              Tu compra fue confirmada correctamente. Cada persona registrada tiene
+              su propio código QR individual para ingresar al evento.
             </p>
 
             <div style="
-              margin:30px 0;
+              margin:32px 0;
               padding:24px;
-              border-radius:20px;
-              background:#111827;
-              border:1px solid #263244;
+              border-radius:24px;
+              background:
+                linear-gradient(135deg, rgba(198,255,87,0.08), rgba(255,214,10,0.04)),
+                #08130c;
+              border:1px solid rgba(198,255,87,0.20);
               color:#ffffff;
             ">
 
-              <h3 style="margin-top:0; color:#ffffff;">
+              <h3 style="
+                margin:0 0 18px;
+                color:#c6ff57;
+                font-size:18px;
+                letter-spacing:1px;
+              ">
                 Información del evento
               </h3>
 
-              <p><strong>Evento:</strong> ${evento}</p>
-              <p><strong>Entrada:</strong> ${entrada}</p>
-              <p><strong>Fecha confirmación:</strong> ${new Date().toLocaleString('es-CR')}</p>
-              <p><strong>Correo:</strong> ${correo}</p>
+              <p style="margin:10px 0; color:#e5f2dc;">
+                <strong style="color:#ffffff;">Evento:</strong> ${evento}
+              </p>
+
+              <p style="margin:10px 0; color:#e5f2dc;">
+                <strong style="color:#ffffff;">Entrada:</strong> ${entrada}
+              </p>
+
+              <p style="margin:10px 0; color:#e5f2dc;">
+                <strong style="color:#ffffff;">Fecha confirmación:</strong> ${new Date().toLocaleString('es-CR')}
+              </p>
+
+              <p style="margin:10px 0; color:#e5f2dc;">
+                <strong style="color:#ffffff;">Correo:</strong> ${correo}
+              </p>
 
             </div>
 
-            <div style="margin:30px 0;">
-              <h3 style="color:#ffffff;">
+            <div style="margin:34px 0;">
+              <h3 style="
+                color:#ffffff;
+                margin:0 0 18px;
+                font-size:22px;
+              ">
                 Entradas registradas
               </h3>
 
@@ -181,23 +281,28 @@ exports.enviarEntradas = async ({
 
             <div style="
               margin-top:40px;
-              padding:22px;
-              border-radius:18px;
-              background:#052e2b;
-              border:1px solid #064e3b;
+              padding:24px;
+              border-radius:22px;
+              background:
+                radial-gradient(circle at top left, rgba(198,255,87,0.12), transparent 45%),
+                #03170e;
+              border:1px solid rgba(52,211,153,0.30);
             ">
 
               <h3 style="
-                margin-top:0;
-                color:#34d399;
+                margin:0 0 14px;
+                color:#c6ff57;
+                font-size:18px;
               ">
                 Información importante
               </h3>
 
               <ul style="
                 padding-left:18px;
+                margin:0;
                 line-height:1.8;
-                color:#cbd5e1;
+                color:#d8e8ce;
+                font-size:14px;
               ">
                 <li>Presentá el QR correspondiente a cada persona.</li>
                 <li>No compartás tus códigos QR.</li>
@@ -208,12 +313,15 @@ exports.enviarEntradas = async ({
             </div>
 
             <div style="
-              margin-top:40px;
+              margin-top:42px;
+              padding-top:24px;
+              border-top:1px solid rgba(198,255,87,0.14);
               text-align:center;
-              color:#64748b;
+              color:#8fa27d;
               font-size:13px;
             ">
-              ZAIRO EXPERIENCE © 2026
+              <strong style="color:#c6ff57;">ZAIRO EXPERIENCE</strong><br>
+              © 2026 • Official Digital Access
             </div>
 
           </div>
