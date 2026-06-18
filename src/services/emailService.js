@@ -3,11 +3,9 @@ const { Resend } = require('resend');
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const getLogoUrl = () => {
-  const frontendUrl = (process.env.FRONTEND_PUBLIC_URL || '').replace(/\/$/, '');
-
   return (
     process.env.ZAIRO_LOGO_URL ||
-    `${frontendUrl}/assets/zairo-loader-logo.png`
+    'https://www.zairoclub.com/assets/zairo-loader-logo.png'
   );
 };
 
@@ -66,31 +64,58 @@ exports.enviarEntradas = async ({
         Código QR individual de acceso
       </div>
 
-      <div style="
-        width:248px;
-        margin:20px auto 0;
-        padding:12px;
-        border-radius:24px;
-        background:
-          linear-gradient(135deg, rgba(198,255,87,0.95), rgba(255,214,10,0.95));
-        box-shadow:
-          0 0 28px rgba(198,255,87,0.18),
-          0 0 38px rgba(255,214,10,0.12);
-      ">
-        <img
-          src="${p.qr_url}"
-          alt="QR Entrada ${index + 1}"
-          style="
-            width:220px;
-            height:220px;
-            background:#ffffff;
-            padding:12px;
-            border-radius:18px;
-            display:block;
-            box-sizing:border-box;
-          "
-        />
-      </div>
+      <table
+        role="presentation"
+        align="center"
+        cellpadding="0"
+        cellspacing="0"
+        style="
+          margin:22px auto 0;
+          border-collapse:separate;
+          border-spacing:0;
+        ">
+        <tr>
+          <td
+            align="center"
+            valign="middle"
+            style="
+              width:248px;
+              height:248px;
+              padding:14px;
+              border-radius:26px;
+              background:#dfff1f;
+              background:linear-gradient(135deg, #baff39, #f4e900);
+              box-shadow:
+                0 0 28px rgba(198,255,87,0.18),
+                0 0 38px rgba(255,214,10,0.12);
+              text-align:center;
+              line-height:0;
+              font-size:0;
+            ">
+
+            <img
+              src="${p.qr_url}"
+              alt="QR Entrada ${index + 1}"
+              width="220"
+              height="220"
+              style="
+                width:220px;
+                height:220px;
+                display:block;
+                margin:0 auto;
+                background:#ffffff;
+                padding:12px;
+                border-radius:18px;
+                box-sizing:border-box;
+                border:0;
+                outline:none;
+                text-decoration:none;
+              "
+            />
+
+          </td>
+        </tr>
+      </table>
 
       <p style="
         margin-top:16px;
@@ -142,34 +167,54 @@ exports.enviarEntradas = async ({
             border-bottom:1px solid rgba(198,255,87,0.16);
           ">
 
-            <div style="
-              width:112px;
-              height:112px;
-              margin:0 auto;
-              border-radius:28px;
-              background:
-                radial-gradient(circle at top, rgba(198,255,87,0.18), transparent 55%),
-                rgba(3,14,8,0.92);
-              border:1px solid rgba(198,255,87,0.38);
-              box-shadow:
-                0 0 28px rgba(198,255,87,0.20),
-                0 0 44px rgba(255,214,10,0.10),
-                inset 0 0 24px rgba(255,255,255,0.04);
-              padding:10px;
-              box-sizing:border-box;
-            ">
-              <img
-                src="${logoUrl}"
-                alt="Logo ZAIRO"
-                style="
-                  width:100%;
-                  height:100%;
-                  object-fit:contain;
-                  display:block;
-                  border-radius:20px;
-                "
-              />
-            </div>
+            <table
+              role="presentation"
+              align="center"
+              cellpadding="0"
+              cellspacing="0"
+              style="margin:0 auto; border-collapse:separate;">
+              <tr>
+                <td
+                  align="center"
+                  valign="middle"
+                  style="
+                    width:112px;
+                    height:112px;
+                    border-radius:28px;
+                    background:
+                      radial-gradient(circle at top, rgba(198,255,87,0.18), transparent 55%),
+                      rgba(3,14,8,0.92);
+                    border:1px solid rgba(198,255,87,0.38);
+                    box-shadow:
+                      0 0 28px rgba(198,255,87,0.20),
+                      0 0 44px rgba(255,214,10,0.10),
+                      inset 0 0 24px rgba(255,255,255,0.04);
+                    padding:10px;
+                    box-sizing:border-box;
+                    text-align:center;
+                    line-height:0;
+                    font-size:0;
+                  ">
+                  <img
+                    src="${logoUrl}"
+                    alt="Logo ZAIRO"
+                    width="92"
+                    height="92"
+                    style="
+                      width:92px;
+                      height:92px;
+                      object-fit:contain;
+                      display:block;
+                      margin:0 auto;
+                      border-radius:20px;
+                      border:0;
+                      outline:none;
+                      text-decoration:none;
+                    "
+                  />
+                </td>
+              </tr>
+            </table>
 
             <h1 style="
               margin:24px 0 8px;
