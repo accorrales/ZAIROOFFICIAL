@@ -131,6 +131,7 @@ exports.enviarEntradas = async ({
       </table>
 
       <div style="margin-top:18px;">
+        ${botonWallet(p.qr_url, 'Abrir QR', '#ffd60a', '#07120b')}
         ${botonWallet(p.apple_wallet_url, 'Agregar a Apple Wallet', '#ffffff', '#050505')}
         ${botonWallet(p.google_wallet_url, 'Agregar a Google Wallet', '#c6ff57', '#07120b')}
         ${botonWallet(p.ticket_url, 'Ver entrada online', 'transparent', '#c6ff57')}
@@ -141,7 +142,7 @@ exports.enviarEntradas = async ({
         font-size:12px;
         color:#8fa27d;
       ">
-        Esta entrada es personal y válida para un único ingreso.
+        Si la imagen del QR no carga en tu correo, tocá “Abrir QR”. Esta entrada es personal y válida para un único ingreso.
       </p>
 
     </div>
@@ -271,8 +272,7 @@ exports.enviarEntradas = async ({
               margin:0;
             ">
               Tu compra fue confirmada correctamente. Cada persona registrada tiene
-              su propio código QR individual para ingresar al evento. También podés guardar
-              cada entrada en Apple Wallet o Google Wallet cuando estén configuradas las credenciales.
+              su propio código QR individual para ingresar al evento.
             </p>
 
             <div style="
