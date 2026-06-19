@@ -35,6 +35,15 @@ const getAppleWalletUrl = (uuidEntrada) =>
     ? `${getBackendUrl()}/api/compras-entradas/wallet/apple/${uuidEntrada}`
     : null;
 
+const getGoogleClassId = (issuerId) => {
+  if (process.env.GOOGLE_WALLET_CLASS_ID) {
+    return process.env.GOOGLE_WALLET_CLASS_ID;
+  }
+
+  const suffix = process.env.GOOGLE_WALLET_CLASS_SUFFIX || 'zairo_event_tickets';
+  return `${issuerId}.${suffix}`;
+};
+
 const generarApplePass = async (entrada) => {
   if (!isAppleWalletConfigured()) {
     const error = new Error('Apple Wallet todavía no tiene certificados configurados');
@@ -108,7 +117,7 @@ const generarGoogleWalletUrl = (entrada) => {
   }
 
   const safeUuid = String(entrada.uuid_entrada).replace(/[^a-zA-Z0-9._-]/g, '_');
-  const classId = `${issuerId}.zairo_event_tickets`;
+  const classId = getGoogleClassId(issuerId);
   const objectId = `${issuerId}.${safeUuid}`;
   const qrData = entrada.qr_data || getTicketUrl(entrada.uuid_entrada);
 
