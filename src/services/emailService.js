@@ -9,6 +9,36 @@ const getLogoUrl = () => {
   );
 };
 
+const escapeHtml = (value = '') =>
+  String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+const botonWallet = (href, label, bg, color = '#07120b') => {
+  if (!href) return '';
+
+  return `
+    <a href="${href}" target="_blank" style="
+      display:inline-block;
+      margin:6px 5px 0;
+      padding:13px 16px;
+      border-radius:999px;
+      background:${bg};
+      color:${color};
+      text-decoration:none;
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.6px;
+      border:1px solid rgba(255,255,255,.14);
+    ">
+      ${label}
+    </a>
+  `;
+};
+
 exports.enviarEntradas = async ({
   correo,
   evento,
@@ -53,7 +83,7 @@ exports.enviarEntradas = async ({
         margin-bottom:6px;
         color:#ffffff;
       ">
-        ${p.nombre_completo}
+        ${escapeHtml(p.nombre_completo)}
       </div>
 
       <div style="
@@ -64,35 +94,19 @@ exports.enviarEntradas = async ({
         Código QR individual de acceso
       </div>
 
-      <table
-        role="presentation"
-        align="center"
-        cellpadding="0"
-        cellspacing="0"
-        style="
-          margin:22px auto 0;
-          border-collapse:separate;
-          border-spacing:0;
-        ">
+      <table role="presentation" align="center" cellpadding="0" cellspacing="0" style="margin:22px auto 0; border-collapse:separate; border-spacing:0;">
         <tr>
-          <td
-            align="center"
-            valign="middle"
-            style="
-              width:248px;
-              height:248px;
-              padding:14px;
-              border-radius:26px;
-              background:#dfff1f;
-              background:linear-gradient(135deg, #baff39, #f4e900);
-              box-shadow:
-                0 0 28px rgba(198,255,87,0.18),
-                0 0 38px rgba(255,214,10,0.12);
-              text-align:center;
-              line-height:0;
-              font-size:0;
-            ">
-
+          <td align="center" valign="middle" style="
+            width:248px;
+            height:248px;
+            padding:14px;
+            border-radius:26px;
+            background:linear-gradient(135deg, #baff39, #f4e900);
+            box-shadow:0 0 28px rgba(198,255,87,0.18), 0 0 38px rgba(255,214,10,0.12);
+            text-align:center;
+            line-height:0;
+            font-size:0;
+          ">
             <img
               src="${p.qr_url}"
               alt="QR Entrada ${index + 1}"
@@ -112,10 +126,15 @@ exports.enviarEntradas = async ({
                 text-decoration:none;
               "
             />
-
           </td>
         </tr>
       </table>
+
+      <div style="margin-top:18px;">
+        ${botonWallet(p.apple_wallet_url, 'Agregar a Apple Wallet', '#ffffff', '#050505')}
+        ${botonWallet(p.google_wallet_url, 'Agregar a Google Wallet', '#c6ff57', '#07120b')}
+        ${botonWallet(p.ticket_url, 'Ver entrada online', 'transparent', '#c6ff57')}
+      </div>
 
       <p style="
         margin-top:16px;
@@ -132,7 +151,6 @@ exports.enviarEntradas = async ({
     from: process.env.EMAIL_FROM || 'ZAIRO <onboarding@resend.dev>',
     to: [correo],
     subject: `Tus entradas oficiales para ${evento}`,
-
     html: `
       <div style="
         margin:0;
@@ -148,53 +166,35 @@ exports.enviarEntradas = async ({
         <div style="
           max-width:720px;
           margin:0 auto;
-          background:
-            linear-gradient(180deg, rgba(7,18,11,0.98), rgba(3,10,6,0.98));
+          background:linear-gradient(180deg, rgba(7,18,11,0.98), rgba(3,10,6,0.98));
           border-radius:32px;
           overflow:hidden;
           border:1px solid rgba(198,255,87,0.22);
-          box-shadow:
-            0 28px 80px rgba(0,0,0,0.45),
-            0 0 55px rgba(198,255,87,0.08);
+          box-shadow:0 28px 80px rgba(0,0,0,0.45), 0 0 55px rgba(198,255,87,0.08);
         ">
 
           <div style="
             padding:54px 32px 44px;
-            background:
-              radial-gradient(circle at center top, rgba(198,255,87,0.18), transparent 42%),
-              linear-gradient(135deg, #07120b 0%, #020403 100%);
+            background:radial-gradient(circle at center top, rgba(198,255,87,0.18), transparent 42%), linear-gradient(135deg, #07120b 0%, #020403 100%);
             text-align:center;
             border-bottom:1px solid rgba(198,255,87,0.16);
           ">
 
-            <table
-              role="presentation"
-              align="center"
-              cellpadding="0"
-              cellspacing="0"
-              style="margin:0 auto; border-collapse:separate;">
+            <table role="presentation" align="center" cellpadding="0" cellspacing="0" style="margin:0 auto; border-collapse:separate;">
               <tr>
-                <td
-                  align="center"
-                  valign="middle"
-                  style="
-                    width:112px;
-                    height:112px;
-                    border-radius:28px;
-                    background:
-                      radial-gradient(circle at top, rgba(198,255,87,0.18), transparent 55%),
-                      rgba(3,14,8,0.92);
-                    border:1px solid rgba(198,255,87,0.38);
-                    box-shadow:
-                      0 0 28px rgba(198,255,87,0.20),
-                      0 0 44px rgba(255,214,10,0.10),
-                      inset 0 0 24px rgba(255,255,255,0.04);
-                    padding:10px;
-                    box-sizing:border-box;
-                    text-align:center;
-                    line-height:0;
-                    font-size:0;
-                  ">
+                <td align="center" valign="middle" style="
+                  width:112px;
+                  height:112px;
+                  border-radius:28px;
+                  background:radial-gradient(circle at top, rgba(198,255,87,0.18), transparent 55%), rgba(3,14,8,0.92);
+                  border:1px solid rgba(198,255,87,0.38);
+                  box-shadow:0 0 28px rgba(198,255,87,0.20), 0 0 44px rgba(255,214,10,0.10), inset 0 0 24px rgba(255,255,255,0.04);
+                  padding:10px;
+                  box-sizing:border-box;
+                  text-align:center;
+                  line-height:0;
+                  font-size:0;
+                ">
                   <img
                     src="${logoUrl}"
                     alt="Logo ZAIRO"
@@ -271,16 +271,15 @@ exports.enviarEntradas = async ({
               margin:0;
             ">
               Tu compra fue confirmada correctamente. Cada persona registrada tiene
-              su propio código QR individual para ingresar al evento.
+              su propio código QR individual para ingresar al evento. También podés guardar
+              cada entrada en Apple Wallet o Google Wallet cuando estén configuradas las credenciales.
             </p>
 
             <div style="
               margin:32px 0;
               padding:24px;
               border-radius:24px;
-              background:
-                linear-gradient(135deg, rgba(198,255,87,0.08), rgba(255,214,10,0.04)),
-                #08130c;
+              background:linear-gradient(135deg, rgba(198,255,87,0.08), rgba(255,214,10,0.04)), #08130c;
               border:1px solid rgba(198,255,87,0.20);
               color:#ffffff;
             ">
@@ -295,11 +294,11 @@ exports.enviarEntradas = async ({
               </h3>
 
               <p style="margin:10px 0; color:#e5f2dc;">
-                <strong style="color:#ffffff;">Evento:</strong> ${evento}
+                <strong style="color:#ffffff;">Evento:</strong> ${escapeHtml(evento)}
               </p>
 
               <p style="margin:10px 0; color:#e5f2dc;">
-                <strong style="color:#ffffff;">Entrada:</strong> ${entrada}
+                <strong style="color:#ffffff;">Entrada:</strong> ${escapeHtml(entrada)}
               </p>
 
               <p style="margin:10px 0; color:#e5f2dc;">
@@ -307,7 +306,7 @@ exports.enviarEntradas = async ({
               </p>
 
               <p style="margin:10px 0; color:#e5f2dc;">
-                <strong style="color:#ffffff;">Correo:</strong> ${correo}
+                <strong style="color:#ffffff;">Correo:</strong> ${escapeHtml(correo)}
               </p>
 
             </div>
@@ -328,9 +327,7 @@ exports.enviarEntradas = async ({
               margin-top:40px;
               padding:24px;
               border-radius:22px;
-              background:
-                radial-gradient(circle at top left, rgba(198,255,87,0.12), transparent 45%),
-                #03170e;
+              background:radial-gradient(circle at top left, rgba(198,255,87,0.12), transparent 45%), #03170e;
               border:1px solid rgba(52,211,153,0.30);
             ">
 
