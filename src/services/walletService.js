@@ -19,30 +19,24 @@ const toGoogleDateTime = (date) => {
   return parsed.toISOString();
 };
 
-const getTicketUrl = (uuidEntrada) => `${getFrontendUrl()}/t/${uuidEntrada}`;
-const getQrUrl = (uuidEntrada) => `${getBackendUrl()}/api/compras-entradas/qr/${uuidEntrada}`;
-const getAppleWalletUrl = (uuidEntrada) => `${getBackendUrl()}/api/compras-entradas/wallet/apple/${uuidEntrada}`;
-
-/**
- * Apple Wallet requiere un .pkpass firmado con certificado Apple.
- * Este endpoint queda listo para activar cuando agreguemos:
- * - APPLE_PASS_TYPE_IDENTIFIER
- * - APPLE_TEAM_IDENTIFIER
- * - APPLE_WALLET_CERT_PEM
- * - APPLE_WALLET_KEY_PEM
- * - APPLE_WWDR_PEM
- *
- * Por ahora se devuelve 501 si no están configuradas las credenciales.
- */
-const generarApplePass = async (entrada) => {
-  const tieneCredenciales =
+const isAppleWalletConfigured = () =>
+  Boolean(
     process.env.APPLE_PASS_TYPE_IDENTIFIER &&
     process.env.APPLE_TEAM_IDENTIFIER &&
     process.env.APPLE_WALLET_CERT_PEM &&
     process.env.APPLE_WALLET_KEY_PEM &&
-    process.env.APPLE_WWDR_PEM;
+    process.env.APPLE_WWDR_PEM
+  );
 
-  if (!tieneCredenciales) {
+const getTicketUrl = (uuidEntrada) => `${getFrontendUrl()}/t/${uuidEntrada}`;
+const getQrUrl = (uuidEntrada) => `${getBackendUrl()}/api/compras-entradas/qr/${uuidEntrada}`;
+const getAppleWalletUrl = (uuidEntrada) =>
+  isAppleWalletConfigured()
+    ? `${getBackendUrl()}/api/compras-entradas/wallet/apple/${uuidEntrada}`
+    : null;
+
+const generarApplePass = async (entrada) => {
+  if (!isAppleWalletConfigured()) {
     const error = new Error('Apple Wallet todavía no tiene certificados configurados');
     error.statusCode = 501;
     throw error;
@@ -205,6 +199,7 @@ module.exports = {
   getTicketUrl,
   getQrUrl,
   getAppleWalletUrl,
+  isAppleWalletConfigured,
   generarApplePass,
   generarGoogleWalletUrl
 };
