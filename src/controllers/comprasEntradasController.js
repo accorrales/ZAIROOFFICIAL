@@ -1,9 +1,47 @@
 const pool = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
-
 const QRCode = require('qrcode');
 
 const emailService = require('../services/emailService');
+const walletService = require('../services/walletService');
+
+const uuidRegex =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const obtenerEntradaPorUuid = async (uuid) => {
+  if (!uuid || !uuidRegex.test(uuid)) return null;
+
+  const result = await pool.query(
+    `
+    SELECT
+      d.id_detalle,
+      d.id_compra,
+      d.nombre_completo,
+      d.fecha_nacimiento,
+      d.estado,
+      d.uuid_entrada,
+      d.qr_data,
+      d.fecha_ingreso,
+      c.correo_comprador,
+      c.telefono_comprador,
+      c.total,
+      c.estado AS estado_compra,
+      e.nombre AS evento,
+      e.fecha AS fecha_evento,
+      e.ubicacion AS ubicacion_evento,
+      t.nombre AS entrada,
+      t.precio
+    FROM compra_entrada_detalles d
+    INNER JOIN compras_entradas c ON c.id_compra = d.id_compra
+    INNER JOIN eventos e ON e.id_evento = c.id_evento
+    INNER JOIN entrada_tiers t ON t.id_tier = c.id_tier
+    WHERE d.uuid_entrada = $1
+    `,
+    [uuid]
+  );
+
+  return result.rows[0] || null;
+};
 
 exports.crearCompra = async (req, res) => {
   try {
@@ -16,27 +54,19 @@ exports.crearCompra = async (req, res) => {
     } = req.body;
 
     if (!id_evento || !id_tier) {
-      return res.status(400).json({
-        message: 'Debe seleccionar evento y tipo de entrada'
-      });
+      return res.status(400).json({ message: 'Debe seleccionar evento y tipo de entrada' });
     }
 
     if (!correo_comprador || !correo_comprador.trim()) {
-      return res.status(400).json({
-        message: 'Debe ingresar un correo electrónico'
-      });
+      return res.status(400).json({ message: 'Debe ingresar un correo electrónico' });
     }
 
     if (!telefono_comprador || !telefono_comprador.trim()) {
-      return res.status(400).json({
-        message: 'Debe ingresar un número de teléfono'
-      });
+      return res.status(400).json({ message: 'Debe ingresar un número de teléfono' });
     }
 
     if (!personas || personas.length === 0) {
-      return res.status(400).json({
-        message: 'Debe agregar al menos una persona'
-      });
+      return res.status(400).json({ message: 'Debe agregar al menos una persona' });
     }
 
     const eventoResult = await pool.query(
@@ -45,9 +75,7 @@ exports.crearCompra = async (req, res) => {
     );
 
     if (eventoResult.rows.length === 0) {
-      return res.status(404).json({
-        message: 'Evento no encontrado'
-      });
+      return res.status(404).json({ message: 'Evento no encontrado' });
     }
 
     const evento = eventoResult.rows[0];
@@ -55,15 +83,11 @@ exports.crearCompra = async (req, res) => {
 
     for (const persona of personas) {
       if (!persona.nombre_completo || !persona.nombre_completo.trim()) {
-        return res.status(400).json({
-          message: 'Cada persona debe ingresar su nombre completo'
-        });
+        return res.status(400).json({ message: 'Cada persona debe ingresar su nombre completo' });
       }
 
       if (!persona.fecha_nacimiento) {
-        return res.status(400).json({
-          message: 'Cada persona debe ingresar su fecha de nacimiento'
-        });
+        return res.status(400).json({ message: 'Cada persona debe ingresar su fecha de nacimiento' });
       }
 
       const fechaNacimiento = new Date(persona.fecha_nacimiento);
@@ -74,16 +98,14 @@ exports.crearCompra = async (req, res) => {
         });
       }
 
-        const fechaCumple17 = new Date(fechaNacimiento);
-        fechaCumple17.setFullYear(fechaCumple17.getFullYear() + 17);
+      const fechaCumple17 = new Date(fechaNacimiento);
+      fechaCumple17.setFullYear(fechaCumple17.getFullYear() + 17);
+      fechaCumple17.setHours(0, 0, 0, 0);
 
-        // quitar horas para comparar solo fechas
-        fechaCumple17.setHours(0, 0, 0, 0);
+      const fechaEventoComparacion = new Date(fechaEvento);
+      fechaEventoComparacion.setHours(0, 0, 0, 0);
 
-        const fechaEventoComparacion = new Date(fechaEvento);
-        fechaEventoComparacion.setHours(0, 0, 0, 0);
-
-        if (fechaCumple17 > fechaEventoComparacion) {
+      if (fechaCumple17 > fechaEventoComparacion) {
         return res.status(400).json({
           message: `${persona.nombre_completo} debe tener 17 años cumplidos para la fecha del evento`
         });
@@ -96,9 +118,7 @@ exports.crearCompra = async (req, res) => {
     );
 
     if (tierResult.rows.length === 0) {
-      return res.status(404).json({
-        message: 'Tipo de entrada no encontrado para este evento'
-      });
+      return res.status(404).json({ message: 'Tipo de entrada no encontrado para este evento' });
     }
 
     const tier = tierResult.rows[0];
@@ -108,14 +128,7 @@ exports.crearCompra = async (req, res) => {
     const compraResult = await pool.query(
       `
       INSERT INTO compras_entradas
-      (
-        id_evento,
-        id_tier,
-        correo_comprador,
-        telefono_comprador,
-        cantidad,
-        total
-      )
+      (id_evento, id_tier, correo_comprador, telefono_comprador, cantidad, total)
       VALUES ($1,$2,$3,$4,$5,$6)
       RETURNING *
       `,
@@ -135,18 +148,10 @@ exports.crearCompra = async (req, res) => {
       await pool.query(
         `
         INSERT INTO compra_entrada_detalles
-        (
-          id_compra,
-          nombre_completo,
-          fecha_nacimiento
-        )
+        (id_compra, nombre_completo, fecha_nacimiento)
         VALUES ($1,$2,$3)
         `,
-        [
-          compra.id_compra,
-          persona.nombre_completo.trim(),
-          persona.fecha_nacimiento
-        ]
+        [compra.id_compra, persona.nombre_completo.trim(), persona.fecha_nacimiento]
       );
     }
 
@@ -154,13 +159,9 @@ exports.crearCompra = async (req, res) => {
       message: 'Compra creada correctamente',
       compra
     });
-
   } catch (error) {
     console.error(error);
-
-    res.status(500).json({
-      message: 'Error creando compra'
-    });
+    res.status(500).json({ message: 'Error creando compra' });
   }
 };
 
@@ -188,15 +189,12 @@ exports.listarPendientes = async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error(error);
-    res.status(500).json({
-      message: 'Error obteniendo compras pendientes'
-    });
+    res.status(500).json({ message: 'Error obteniendo compras pendientes' });
   }
 };
 
 exports.obtenerCompraPorId = async (req, res) => {
   try {
-
     const { id } = req.params;
 
     const compraResult = await pool.query(`
@@ -211,9 +209,7 @@ exports.obtenerCompraPorId = async (req, res) => {
     `, [id]);
 
     if (compraResult.rows.length === 0) {
-      return res.status(404).json({
-        message: 'Compra no encontrada'
-      });
+      return res.status(404).json({ message: 'Compra no encontrada' });
     }
 
     const personasResult = await pool.query(`
@@ -221,7 +217,9 @@ exports.obtenerCompraPorId = async (req, res) => {
         id_detalle,
         nombre_completo,
         fecha_nacimiento,
-        estado
+        estado,
+        uuid_entrada,
+        qr_data
       FROM compra_entrada_detalles
       WHERE id_compra = $1
       ORDER BY id_detalle
@@ -231,21 +229,14 @@ exports.obtenerCompraPorId = async (req, res) => {
       compra: compraResult.rows[0],
       personas: personasResult.rows
     });
-
   } catch (error) {
-
     console.error(error);
-
-    res.status(500).json({
-      message: 'Error obteniendo compra'
-    });
-
+    res.status(500).json({ message: 'Error obteniendo compra' });
   }
 };
 
 exports.confirmarCompra = async (req, res) => {
   try {
-
     const { id } = req.params;
 
     const compraResult = await pool.query(
@@ -255,7 +246,8 @@ exports.confirmarCompra = async (req, res) => {
         e.nombre AS evento,
         e.fecha AS fecha_evento,
         e.ubicacion AS ubicacion_evento,
-        t.nombre AS entrada
+        t.nombre AS entrada,
+        t.precio AS precio_entrada
       FROM compras_entradas c
       INNER JOIN eventos e ON e.id_evento = c.id_evento
       INNER JOIN entrada_tiers t ON t.id_tier = c.id_tier
@@ -265,17 +257,13 @@ exports.confirmarCompra = async (req, res) => {
     );
 
     if (compraResult.rows.length === 0) {
-      return res.status(404).json({
-        message: 'Compra no encontrada'
-      });
+      return res.status(404).json({ message: 'Compra no encontrada' });
     }
 
     const compra = compraResult.rows[0];
 
     if (compra.estado === 'PAGADA') {
-      return res.status(400).json({
-        message: 'Esta compra ya fue confirmada'
-      });
+      return res.status(400).json({ message: 'Esta compra ya fue confirmada' });
     }
 
     const personasResult = await pool.query(
@@ -291,10 +279,8 @@ exports.confirmarCompra = async (req, res) => {
     const personasConQr = [];
 
     for (const persona of personasResult.rows) {
-
-      const uuidEntrada = uuidv4();
-
-      const qrData = `${process.env.FRONTEND_PUBLIC_URL}/t/${uuidEntrada}`;
+      const uuidEntrada = persona.uuid_entrada || uuidv4();
+      const qrData = walletService.getTicketUrl(uuidEntrada);
 
       await pool.query(
         `
@@ -305,18 +291,28 @@ exports.confirmarCompra = async (req, res) => {
           estado = 'CONFIRMADA'
         WHERE id_detalle = $3
         `,
-        [
-          uuidEntrada,
-          qrData,
-          persona.id_detalle
-        ]
+        [uuidEntrada, qrData, persona.id_detalle]
       );
+
+      const entradaWallet = {
+        ...persona,
+        uuid_entrada: uuidEntrada,
+        qr_data: qrData,
+        evento: compra.evento,
+        fecha_evento: compra.fecha_evento,
+        ubicacion_evento: compra.ubicacion_evento,
+        entrada: compra.entrada,
+        precio: compra.precio_entrada,
+        estado: 'CONFIRMADA'
+      };
 
       personasConQr.push({
         nombre_completo: persona.nombre_completo,
-        qr_url: `${process.env.BACKEND_PUBLIC_URL}/api/compras-entradas/qr/${uuidEntrada}`
+        qr_url: walletService.getQrUrl(uuidEntrada),
+        ticket_url: walletService.getTicketUrl(uuidEntrada),
+        apple_wallet_url: walletService.getAppleWalletUrl(uuidEntrada),
+        google_wallet_url: walletService.generarGoogleWalletUrl(entradaWallet)
       });
-
     }
 
     console.log('LLAMANDO EMAIL SERVICE PARA COMPRA:', compra.id_compra);
@@ -343,17 +339,12 @@ exports.confirmarCompra = async (req, res) => {
       message: 'Compra confirmada correctamente',
       compra: updateCompra.rows[0]
     });
-
   } catch (error) {
-
     console.error('ERROR CONFIRMANDO COMPRA:', error);
-
-    return res.status(500).json({
-      message: error.message || 'Error confirmando compra'
-    });
-
+    return res.status(500).json({ message: error.message || 'Error confirmando compra' });
   }
 };
+
 exports.testEmail = async (req, res) => {
   try {
     await emailService.enviarEntradas({
@@ -363,7 +354,10 @@ exports.testEmail = async (req, res) => {
       personas: [
         {
           nombre_completo: 'Prueba QR',
-          qr_url: `${process.env.BACKEND_PUBLIC_URL}/api/health`
+          qr_url: `${process.env.BACKEND_PUBLIC_URL}/api/health`,
+          ticket_url: `${process.env.FRONTEND_PUBLIC_URL}/t/test`,
+          apple_wallet_url: `${process.env.BACKEND_PUBLIC_URL}/api/compras-entradas/wallet/apple/test`,
+          google_wallet_url: null
         }
       ]
     });
@@ -371,11 +365,10 @@ exports.testEmail = async (req, res) => {
     res.json({ message: 'Correo de prueba enviado' });
   } catch (error) {
     console.error('ERROR TEST EMAIL:', error);
-    res.status(500).json({
-      message: error.message
-    });
+    res.status(500).json({ message: error.message });
   }
 };
+
 exports.rechazarCompra = async (req, res) => {
   try {
     const { id } = req.params;
@@ -391,21 +384,16 @@ exports.rechazarCompra = async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: 'Compra no encontrada'
-      });
+      return res.status(404).json({ message: 'Compra no encontrada' });
     }
 
     res.json({
       message: 'Compra rechazada correctamente',
       compra: result.rows[0]
     });
-
   } catch (error) {
     console.error(error);
-    res.status(500).json({
-      message: 'Error rechazando compra'
-    });
+    res.status(500).json({ message: 'Error rechazando compra' });
   }
 };
 
@@ -422,25 +410,15 @@ exports.validarQr = async (req, res) => {
 
     let uuidEntrada = null;
 
-    // 1. Intentar leer QR viejo en formato JSON
     try {
       const data = JSON.parse(qr_data);
-
       if (data.tipo === 'ZAIRO_TICKET' && data.uuid) {
         uuidEntrada = data.uuid;
       }
     } catch {
-      // 2. Si no es JSON, intentar leer QR nuevo en formato URL
       const match = qr_data.match(/\/t\/([a-f0-9-]+)/i);
-
-      if (match && match[1]) {
-        uuidEntrada = match[1];
-      }
+      if (match && match[1]) uuidEntrada = match[1];
     }
-
-    // 3. Validar que exista UUID y que tenga formato correcto
-    const uuidRegex =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
     if (!uuidEntrada || !uuidRegex.test(uuidEntrada)) {
       return res.status(400).json({
@@ -449,7 +427,6 @@ exports.validarQr = async (req, res) => {
       });
     }
 
-    // 4. Validación atómica: solo marca USADA si estaba CONFIRMADA
     const updateResult = await pool.query(
       `
       UPDATE compra_entrada_detalles d
@@ -484,36 +461,14 @@ exports.validarQr = async (req, res) => {
       });
     }
 
-    // 5. Si no actualizó, revisar si existe y por qué falló
-    const checkResult = await pool.query(
-      `
-      SELECT
-        d.id_detalle,
-        d.nombre_completo,
-        d.estado,
-        d.uuid_entrada,
-        d.fecha_ingreso,
-        c.id_compra,
-        e.nombre AS evento,
-        e.fecha AS fecha_evento,
-        t.nombre AS entrada
-      FROM compra_entrada_detalles d
-      INNER JOIN compras_entradas c ON c.id_compra = d.id_compra
-      INNER JOIN eventos e ON e.id_evento = c.id_evento
-      INNER JOIN entrada_tiers t ON t.id_tier = c.id_tier
-      WHERE d.uuid_entrada = $1
-      `,
-      [uuidEntrada]
-    );
+    const entrada = await obtenerEntradaPorUuid(uuidEntrada);
 
-    if (checkResult.rows.length === 0) {
+    if (!entrada) {
       return res.status(404).json({
         valido: false,
         message: 'Entrada no encontrada'
       });
     }
-
-    const entrada = checkResult.rows[0];
 
     if (entrada.estado === 'USADA') {
       return res.status(400).json({
@@ -528,10 +483,8 @@ exports.validarQr = async (req, res) => {
       message: 'Entrada no confirmada',
       entrada
     });
-
   } catch (error) {
     console.error('ERROR VALIDANDO QR:', error);
-
     return res.status(500).json({
       valido: false,
       message: 'Error validando QR'
@@ -542,32 +495,72 @@ exports.validarQr = async (req, res) => {
 exports.obtenerQrEntrada = async (req, res) => {
   try {
     const { uuid } = req.params;
+    const entrada = await obtenerEntradaPorUuid(uuid);
 
-    const result = await pool.query(
-      `
-      SELECT qr_data
-      FROM compra_entrada_detalles
-      WHERE uuid_entrada = $1
-      `,
-      [uuid]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: 'QR no encontrado'
-      });
+    if (!entrada) {
+      return res.status(404).json({ message: 'QR no encontrado' });
     }
 
-    const qrBuffer = await QRCode.toBuffer(result.rows[0].qr_data);
+    const qrBuffer = await QRCode.toBuffer(entrada.qr_data || walletService.getTicketUrl(uuid));
 
     res.setHeader('Content-Type', 'image/png');
     res.send(qrBuffer);
-
   } catch (error) {
     console.error('ERROR GENERANDO QR PUBLICO:', error);
+    res.status(500).json({ message: 'Error generando QR' });
+  }
+};
 
-    res.status(500).json({
-      message: 'Error generando QR'
+exports.obtenerAppleWallet = async (req, res) => {
+  try {
+    const { uuid } = req.params;
+    const entrada = await obtenerEntradaPorUuid(uuid);
+
+    if (!entrada) {
+      return res.status(404).json({ message: 'Entrada no encontrada' });
+    }
+
+    if (entrada.estado_compra !== 'PAGADA') {
+      return res.status(400).json({ message: 'La entrada todavía no está pagada' });
+    }
+
+    const pkpassBuffer = await walletService.generarApplePass(entrada);
+
+    res.setHeader('Content-Type', 'application/vnd.apple.pkpass');
+    res.setHeader('Content-Disposition', `attachment; filename="zairo-${uuid}.pkpass"`);
+    return res.send(pkpassBuffer);
+  } catch (error) {
+    console.error('ERROR APPLE WALLET:', error);
+    return res.status(error.statusCode || 500).json({
+      message: error.message || 'Error generando Apple Wallet'
     });
+  }
+};
+
+exports.obtenerGoogleWallet = async (req, res) => {
+  try {
+    const { uuid } = req.params;
+    const entrada = await obtenerEntradaPorUuid(uuid);
+
+    if (!entrada) {
+      return res.status(404).json({ message: 'Entrada no encontrada' });
+    }
+
+    if (entrada.estado_compra !== 'PAGADA') {
+      return res.status(400).json({ message: 'La entrada todavía no está pagada' });
+    }
+
+    const googleWalletUrl = walletService.generarGoogleWalletUrl(entrada);
+
+    if (!googleWalletUrl) {
+      return res.status(501).json({
+        message: 'Google Wallet todavía no tiene credenciales configuradas'
+      });
+    }
+
+    return res.redirect(googleWalletUrl);
+  } catch (error) {
+    console.error('ERROR GOOGLE WALLET:', error);
+    return res.status(500).json({ message: 'Error generando Google Wallet' });
   }
 };
