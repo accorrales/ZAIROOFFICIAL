@@ -1,0 +1,254 @@
+const jwt = require('jsonwebtoken');
+const QRCode = require('qrcode');
+
+const getFrontendUrl = () =>
+  (process.env.FRONTEND_PUBLIC_URL || 'https://zairoclub.com').replace(/\/$/, '');
+
+const getBackendUrl = () =>
+  (process.env.BACKEND_PUBLIC_URL || 'https://zairoofficial-production.up.railway.app').replace(/\/$/, '');
+
+const money = (value) => {
+  const number = Number(value || 0);
+  return Number.isFinite(number) ? number : 0;
+};
+
+const toGoogleDateTime = (date) => {
+  if (!date) return undefined;
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  return parsed.toISOString();
+};
+
+const isAppleWalletConfigured = () =>
+  Boolean(
+    process.env.APPLE_PASS_TYPE_IDENTIFIER &&
+    process.env.APPLE_TEAM_IDENTIFIER &&
+    process.env.APPLE_WALLET_CERT_PEM &&
+    process.env.APPLE_WALLET_KEY_PEM &&
+    process.env.APPLE_WWDR_PEM
+  );
+
+const getTicketUrl = (uuidEntrada) => `${getFrontendUrl()}/t/${uuidEntrada}`;
+const getQrUrl = (uuidEntrada) => `${getBackendUrl()}/api/compras-entradas/qr/${uuidEntrada}`;
+const getAppleWalletUrl = (uuidEntrada) =>
+  isAppleWalletConfigured()
+    ? `${getBackendUrl()}/api/compras-entradas/wallet/apple/${uuidEntrada}`
+    : null;
+
+const getWalletLogoUrl = () =>
+  process.env.ZAIRO_LOGO_URL ||
+  'https://www.zairoclub.com/assets/zairo-loader-logo.png';
+
+// Color de fondo de marca para el pase de Google Wallet (formato #rrggbb)
+const WALLET_BACKGROUND_COLOR = '#07120b';
+
+const isHttpUrl = (value) =>
+  typeof value === 'string' && /^https?:\/\//i.test(value.trim());
+
+const buildWalletImage = (uri, description) => ({
+  sourceUri: { uri },
+  contentDescription: {
+    defaultValue: {
+      language: 'es-CR',
+      value: description || 'ZAIRO'
+    }
+  }
+});
+
+const getGoogleClassId = (issuerId, entrada = {}) => {
+  if (process.env.GOOGLE_WALLET_CLASS_ID) {
+    return process.env.GOOGLE_WALLET_CLASS_ID;
+  }
+
+  const suffix = process.env.GOOGLE_WALLET_CLASS_SUFFIX || 'zairo_event_tickets';
+  const eventoId =
+    entrada.id_evento != null
+      ? String(entrada.id_evento).replace(/[^a-zA-Z0-9._-]/g, '_')
+      : null;
+
+  // Una clase por evento: cada evento crea su propia clase ya con la marca
+  // (logo, color de fondo y banner). Así el QR queda enmarcado y proporcionado
+  // en Android, en vez de compartir una clase sin estilo.
+  return eventoId
+    ? `${issuerId}.${suffix}_evt_${eventoId}`
+    : `${issuerId}.${suffix}`;
+};
+
+const generarApplePass = async (entrada) => {
+  if (!isAppleWalletConfigured()) {
+    const error = new Error('Apple Wallet todavía no tiene certificados configurados');
+    error.statusCode = 501;
+    throw error;
+  }
+
+  const { PKPass } = require('passkit-generator');
+
+  const qrData = entrada.qr_data || getTicketUrl(entrada.uuid_entrada);
+  const qrPng = await QRCode.toBuffer(qrData, { width: 600, margin: 1 });
+
+  const pass = new PKPass({
+    'pass.json': Buffer.from(JSON.stringify({
+      formatVersion: 1,
+      passTypeIdentifier: process.env.APPLE_PASS_TYPE_IDENTIFIER,
+      teamIdentifier: process.env.APPLE_TEAM_IDENTIFIER,
+      organizationName: 'ZAIRO',
+      description: `Entrada ${entrada.evento}`,
+      serialNumber: entrada.uuid_entrada,
+      logoText: 'ZAIRO',
+      foregroundColor: 'rgb(255,255,255)',
+      backgroundColor: 'rgb(4,12,7)',
+      labelColor: 'rgb(198,255,87)',
+      relevantDate: entrada.fecha_evento ? new Date(entrada.fecha_evento).toISOString() : undefined,
+      eventTicket: {
+        primaryFields: [
+          { key: 'event', label: 'EVENTO', value: entrada.evento || 'ZAIRO' }
+        ],
+        secondaryFields: [
+          { key: 'ticket', label: 'ENTRADA', value: entrada.entrada || 'Entrada' },
+          { key: 'name', label: 'PERSONA', value: entrada.nombre_completo || '' }
+        ],
+        auxiliaryFields: [
+          { key: 'venue', label: 'LUGAR', value: entrada.ubicacion_evento || 'ZAIRO Experience' }
+        ],
+        backFields: [
+          { key: 'terms', label: 'Importante', value: 'Entrada personal válida para un único ingreso. Se solicitará identificación.' },
+          { key: 'url', label: 'Ver entrada', value: getTicketUrl(entrada.uuid_entrada) }
+        ]
+      },
+      barcodes: [
+        {
+          message: qrData,
+          format: 'PKBarcodeFormatQR',
+          messageEncoding: 'iso-8859-1'
+        }
+      ]
+    })),
+    'icon.png': qrPng,
+    'icon@2x.png': qrPng,
+    'logo.png': qrPng,
+    'logo@2x.png': qrPng
+  }, {
+    signerCert: Buffer.from(process.env.APPLE_WALLET_CERT_PEM.replace(/\\n/g, '\n')),
+    signerKey: Buffer.from(process.env.APPLE_WALLET_KEY_PEM.replace(/\\n/g, '\n')),
+    wwdr: Buffer.from(process.env.APPLE_WWDR_PEM.replace(/\\n/g, '\n')),
+    signerKeyPassphrase: process.env.APPLE_WALLET_KEY_PASSPHRASE || undefined
+  });
+
+  return pass.getAsBuffer();
+};
+
+const generarGoogleWalletUrl = (entrada) => {
+  const issuerId = process.env.GOOGLE_WALLET_ISSUER_ID;
+  const serviceAccountEmail = process.env.GOOGLE_WALLET_CLIENT_EMAIL;
+  const privateKey = process.env.GOOGLE_WALLET_PRIVATE_KEY;
+
+  if (!issuerId || !serviceAccountEmail || !privateKey) {
+    return null;
+  }
+
+  const safeUuid = String(entrada.uuid_entrada).replace(/[^a-zA-Z0-9._-]/g, '_');
+  const classId = getGoogleClassId(issuerId, entrada);
+  const objectId = `${issuerId}.${safeUuid}`;
+  const qrData = entrada.qr_data || getTicketUrl(entrada.uuid_entrada);
+
+  const eventTicketClass = {
+    id: classId,
+    issuerName: 'ZAIRO',
+    reviewStatus: 'UNDER_REVIEW',
+    hexBackgroundColor: WALLET_BACKGROUND_COLOR,
+    logo: buildWalletImage(getWalletLogoUrl(), 'ZAIRO'),
+    eventName: {
+      defaultValue: {
+        language: 'es-CR',
+        value: entrada.evento || 'ZAIRO Experience'
+      }
+    },
+    venue: {
+      name: {
+        defaultValue: {
+          language: 'es-CR',
+          value: entrada.ubicacion_evento || 'ZAIRO'
+        }
+      },
+      address: {
+        defaultValue: {
+          language: 'es-CR',
+          value: entrada.ubicacion_evento || 'Costa Rica'
+        }
+      }
+    },
+    dateTime: {
+      start: toGoogleDateTime(entrada.fecha_evento)
+    }
+  };
+
+  // Banner del evento (a todo el ancho) solo si hay una imagen pública válida.
+  if (isHttpUrl(entrada.imagen_evento)) {
+    eventTicketClass.heroImage = buildWalletImage(
+      entrada.imagen_evento.trim(),
+      entrada.evento || 'ZAIRO Experience'
+    );
+  }
+
+  const payload = {
+    iss: serviceAccountEmail,
+    aud: 'google',
+    typ: 'savetowallet',
+    origins: [getFrontendUrl(), getBackendUrl()],
+    payload: {
+      eventTicketClasses: [eventTicketClass],
+      eventTicketObjects: [
+        {
+          id: objectId,
+          classId,
+          state: entrada.estado === 'USADA' ? 'INACTIVE' : 'ACTIVE',
+          ticketHolderName: entrada.nombre_completo,
+          ticketNumber: entrada.uuid_entrada,
+          barcode: {
+            type: 'QR_CODE',
+            value: qrData,
+            alternateText: 'ZAIRO QR'
+          },
+          seatInfo: {
+            section: {
+              defaultValue: {
+                language: 'es-CR',
+                value: entrada.entrada || 'Entrada General'
+              }
+            }
+          },
+          faceValue: {
+            micros: String(Math.round(money(entrada.precio) * 1000000)),
+            currencyCode: 'CRC'
+          },
+          textModulesData: [
+            {
+              header: 'Importante',
+              body: 'Entrada personal válida para un único ingreso. Se solicitará identificación.'
+            }
+          ],
+          linksModuleData: {
+            uris: [
+              {
+                uri: getTicketUrl(entrada.uuid_entrada),
+                description: 'Ver entrada ZAIRO'
+              }
+            ]
+          }
+        }
+      ]
+    }
+  };
+
+  const token = jwt.sign(payload, privateKey.replace(/\\n/g, '\n'), { algorithm: 'RS256' });
+  return `https://pay.google.com/gp/v/save/${token}`;
+};
+
+module.exports = {
+  getTicketUrl,
+  getQrUrl,
+  getAppleWalletUrl,
+  isAppleWalletConfigured,
+  generarApplePass,
+  generarGoogleWalletUrl
+};
