@@ -29,7 +29,10 @@ const isAppleWalletConfigured = () =>
   );
 
 const getTicketUrl = (uuidEntrada) => `${getFrontendUrl()}/t/${uuidEntrada}`;
-const getQrUrl = (uuidEntrada) => `${getBackendUrl()}/api/compras-entradas/qr/${uuidEntrada}`;
+
+const getQrUrl = (uuidEntrada) =>
+  `${getBackendUrl()}/api/compras-entradas/qr/${uuidEntrada}`;
+
 const getAppleWalletUrl = (uuidEntrada) =>
   isAppleWalletConfigured()
     ? `${getBackendUrl()}/api/compras-entradas/wallet/apple/${uuidEntrada}`
@@ -39,7 +42,6 @@ const getWalletLogoUrl = () =>
   process.env.ZAIRO_LOGO_URL ||
   'https://www.zairoclub.com/assets/zairo-loader-logo.png';
 
-// Color de fondo de marca para el pase de Google Wallet (formato #rrggbb)
 const WALLET_BACKGROUND_COLOR = '#07120b';
 
 const isHttpUrl = (value) =>
@@ -61,14 +63,12 @@ const getGoogleClassId = (issuerId, entrada = {}) => {
   }
 
   const suffix = process.env.GOOGLE_WALLET_CLASS_SUFFIX || 'zairo_event_tickets';
+
   const eventoId =
     entrada.id_evento != null
       ? String(entrada.id_evento).replace(/[^a-zA-Z0-9._-]/g, '_')
       : null;
 
-  // Una clase por evento: cada evento crea su propia clase ya con la marca
-  // (logo, color de fondo y banner). Así el QR queda enmarcado y proporcionado
-  // en Android, en vez de compartir una clase sin estilo.
   return eventoId
     ? `${issuerId}.${suffix}_evt_${eventoId}`
     : `${issuerId}.${suffix}`;
@@ -86,53 +86,90 @@ const generarApplePass = async (entrada) => {
   const qrData = entrada.qr_data || getTicketUrl(entrada.uuid_entrada);
   const qrPng = await QRCode.toBuffer(qrData, { width: 600, margin: 1 });
 
-  const pass = new PKPass({
-    'pass.json': Buffer.from(JSON.stringify({
-      formatVersion: 1,
-      passTypeIdentifier: process.env.APPLE_PASS_TYPE_IDENTIFIER,
-      teamIdentifier: process.env.APPLE_TEAM_IDENTIFIER,
-      organizationName: 'ZAIRO',
-      description: `Entrada ${entrada.evento}`,
-      serialNumber: entrada.uuid_entrada,
-      logoText: 'ZAIRO',
-      foregroundColor: 'rgb(255,255,255)',
-      backgroundColor: 'rgb(4,12,7)',
-      labelColor: 'rgb(198,255,87)',
-      relevantDate: entrada.fecha_evento ? new Date(entrada.fecha_evento).toISOString() : undefined,
-      eventTicket: {
-        primaryFields: [
-          { key: 'event', label: 'EVENTO', value: entrada.evento || 'ZAIRO' }
-        ],
-        secondaryFields: [
-          { key: 'ticket', label: 'ENTRADA', value: entrada.entrada || 'Entrada' },
-          { key: 'name', label: 'PERSONA', value: entrada.nombre_completo || '' }
-        ],
-        auxiliaryFields: [
-          { key: 'venue', label: 'LUGAR', value: entrada.ubicacion_evento || 'ZAIRO Experience' }
-        ],
-        backFields: [
-          { key: 'terms', label: 'Importante', value: 'Entrada personal válida para un único ingreso. Se solicitará identificación.' },
-          { key: 'url', label: 'Ver entrada', value: getTicketUrl(entrada.uuid_entrada) }
-        ]
-      },
-      barcodes: [
-        {
-          message: qrData,
-          format: 'PKBarcodeFormatQR',
-          messageEncoding: 'iso-8859-1'
-        }
-      ]
-    })),
-    'icon.png': qrPng,
-    'icon@2x.png': qrPng,
-    'logo.png': qrPng,
-    'logo@2x.png': qrPng
-  }, {
-    signerCert: Buffer.from(process.env.APPLE_WALLET_CERT_PEM.replace(/\\n/g, '\n')),
-    signerKey: Buffer.from(process.env.APPLE_WALLET_KEY_PEM.replace(/\\n/g, '\n')),
-    wwdr: Buffer.from(process.env.APPLE_WWDR_PEM.replace(/\\n/g, '\n')),
-    signerKeyPassphrase: process.env.APPLE_WALLET_KEY_PASSPHRASE || undefined
-  });
+  const pass = new PKPass(
+    {
+      'pass.json': Buffer.from(
+        JSON.stringify({
+          formatVersion: 1,
+          passTypeIdentifier: process.env.APPLE_PASS_TYPE_IDENTIFIER,
+          teamIdentifier: process.env.APPLE_TEAM_IDENTIFIER,
+          organizationName: 'ZAIRO',
+          description: `Entrada ${entrada.evento}`,
+          serialNumber: entrada.uuid_entrada,
+          logoText: 'ZAIRO',
+          foregroundColor: 'rgb(255,255,255)',
+          backgroundColor: 'rgb(4,12,7)',
+          labelColor: 'rgb(198,255,87)',
+          relevantDate: entrada.fecha_evento
+            ? new Date(entrada.fecha_evento).toISOString()
+            : undefined,
+          eventTicket: {
+            primaryFields: [
+              {
+                key: 'event',
+                label: 'EVENTO',
+                value: entrada.evento || 'ZAIRO'
+              }
+            ],
+            secondaryFields: [
+              {
+                key: 'ticket',
+                label: 'ENTRADA',
+                value: entrada.entrada || 'Entrada'
+              },
+              {
+                key: 'name',
+                label: 'PERSONA',
+                value: entrada.nombre_completo || ''
+              }
+            ],
+            auxiliaryFields: [
+              {
+                key: 'venue',
+                label: 'LUGAR',
+                value: entrada.ubicacion_evento || 'ZAIRO Experience'
+              }
+            ],
+            backFields: [
+              {
+                key: 'terms',
+                label: 'Importante',
+                value:
+                  'Entrada personal válida para un único ingreso. Se solicitará identificación.'
+              },
+              {
+                key: 'url',
+                label: 'Ver entrada',
+                value: getTicketUrl(entrada.uuid_entrada)
+              }
+            ]
+          },
+          barcodes: [
+            {
+              message: qrData,
+              format: 'PKBarcodeFormatQR',
+              messageEncoding: 'iso-8859-1'
+            }
+          ]
+        })
+      ),
+      'icon.png': qrPng,
+      'icon@2x.png': qrPng,
+      'logo.png': qrPng,
+      'logo@2x.png': qrPng
+    },
+    {
+      signerCert: Buffer.from(
+        process.env.APPLE_WALLET_CERT_PEM.replace(/\\n/g, '\n')
+      ),
+      signerKey: Buffer.from(
+        process.env.APPLE_WALLET_KEY_PEM.replace(/\\n/g, '\n')
+      ),
+      wwdr: Buffer.from(process.env.APPLE_WWDR_PEM.replace(/\\n/g, '\n')),
+      signerKeyPassphrase:
+        process.env.APPLE_WALLET_KEY_PASSPHRASE || undefined
+    }
+  );
 
   return pass.getAsBuffer();
 };
@@ -182,7 +219,6 @@ const generarGoogleWalletUrl = (entrada) => {
     }
   };
 
-  // Banner del evento (a todo el ancho) solo si hay una imagen pública válida.
   if (isHttpUrl(entrada.imagen_evento)) {
     eventTicketClass.heroImage = buildWalletImage(
       entrada.imagen_evento.trim(),
@@ -224,7 +260,8 @@ const generarGoogleWalletUrl = (entrada) => {
           textModulesData: [
             {
               header: 'Importante',
-              body: 'Entrada personal válida para un único ingreso. Se solicitará identificación.'
+              body:
+                'Entrada personal válida para un único ingreso. Se solicitará identificación.'
             }
           ],
           linksModuleData: {
@@ -240,7 +277,10 @@ const generarGoogleWalletUrl = (entrada) => {
     }
   };
 
-  const token = jwt.sign(payload, privateKey.replace(/\\n/g, '\n'), { algorithm: 'RS256' });
+  const token = jwt.sign(payload, privateKey.replace(/\\n/g, '\n'), {
+    algorithm: 'RS256'
+  });
+
   return `https://pay.google.com/gp/v/save/${token}`;
 };
 
