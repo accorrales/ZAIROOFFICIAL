@@ -1,5 +1,18 @@
+const fs = require('fs');
+const path = require('path');
 const jwt = require('jsonwebtoken');
-const QRCode = require('qrcode');
+
+// Imagenes de marca para el pase de Apple Wallet (se versionan en el repo).
+const WALLET_ASSETS_DIR = path.join(__dirname, '..', 'assets', 'wallet');
+
+const APPLE_PASS_IMAGES = [
+  'icon.png',
+  'icon@2x.png',
+  'icon@3x.png',
+  'logo.png',
+  'logo@2x.png',
+  'logo@3x.png'
+];
 
 const getFrontendUrl = () =>
   (process.env.FRONTEND_PUBLIC_URL || 'https://zairoclub.com').replace(/\/$/, '');
@@ -12,11 +25,56 @@ const money = (value) => {
   return Number.isFinite(number) ? number : 0;
 };
 
-const toGoogleDateTime = (date) => {
+const toIsoDate = (date) => {
   if (!date) return undefined;
   const parsed = new Date(date);
   if (Number.isNaN(parsed.getTime())) return undefined;
   return parsed.toISOString();
+};
+
+const toGoogleDateTime = (date) => toIsoDate(date);
+
+// Fecha legible para mostrar dentro del pase (ej: "viernes, 5 de diciembre, 09:00 p. m.")
+const formatEventDate = (date) => {
+  if (!date) return undefined;
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  try {
+    return parsed.toLocaleString('es-CR', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'America/Costa_Rica'
+    });
+  } catch {
+    return parsed.toISOString();
+  }
+};
+
+// Lee las imagenes del pase desde el disco. El icono es obligatorio para Apple;
+// el resto es opcional y se omite si faltara para no romper la generacion.
+const loadApplePassImages = () => {
+  const images = {};
+
+  for (const name of APPLE_PASS_IMAGES) {
+    try {
+      images[name] = fs.readFileSync(path.join(WALLET_ASSETS_DIR, name));
+    } catch {
+      // imagen opcional faltante: se omite
+    }
+  }
+
+  if (!images['icon.png']) {
+    const error = new Error(
+      'Falta el icono del pase de Apple Wallet (src/assets/wallet/icon.png)'
+    );
+    error.statusCode = 500;
+    throw error;
+  }
+
+  return images;
 };
 
 const isAppleWalletConfigured = () =>
@@ -83,56 +141,87 @@ const generarApplePass = async (entrada) => {
 
   const { PKPass } = require('passkit-generator');
 
+  const nombreEvento = entrada.evento || 'ZAIRO Experience';
   const qrData = entrada.qr_data || getTicketUrl(entrada.uuid_entrada);
-  const qrPng = await QRCode.toBuffer(qrData, { width: 600, margin: 1 });
+  const fechaLegible = formatEventDate(entrada.fecha_evento);
+  const usada = String(entrada.estado || '').toUpperCase() === 'USADA';
 
-  const pass = new PKPass({
-    'pass.json': Buffer.from(JSON.stringify({
-      formatVersion: 1,
-      passTypeIdentifier: process.env.APPLE_PASS_TYPE_IDENTIFIER,
-      teamIdentifier: process.env.APPLE_TEAM_IDENTIFIER,
-      organizationName: 'ZAIRO',
-      description: `Entrada ${entrada.evento}`,
-      serialNumber: entrada.uuid_entrada,
-      logoText: 'ZAIRO',
-      foregroundColor: 'rgb(255,255,255)',
-      backgroundColor: 'rgb(4,12,7)',
-      labelColor: 'rgb(198,255,87)',
-      relevantDate: entrada.fecha_evento ? new Date(entrada.fecha_evento).toISOString() : undefined,
-      eventTicket: {
-        primaryFields: [
-          { key: 'event', label: 'EVENTO', value: entrada.evento || 'ZAIRO' }
-        ],
-        secondaryFields: [
-          { key: 'ticket', label: 'ENTRADA', value: entrada.entrada || 'Entrada' },
-          { key: 'name', label: 'PERSONA', value: entrada.nombre_completo || '' }
-        ],
-        auxiliaryFields: [
-          { key: 'venue', label: 'LUGAR', value: entrada.ubicacion_evento || 'ZAIRO Experience' }
-        ],
-        backFields: [
-          { key: 'terms', label: 'Importante', value: 'Entrada personal válida para un único ingreso. Se solicitará identificación.' },
-          { key: 'url', label: 'Ver entrada', value: getTicketUrl(entrada.uuid_entrada) }
-        ]
-      },
-      barcodes: [
+  const auxiliaryFields = [
+    { key: 'venue', label: 'LUGAR', value: entrada.ubicacion_evento || 'ZAIRO Experience' }
+  ];
+
+  if (fechaLegible) {
+    auxiliaryFields.push({ key: 'datetime', label: 'CUÁNDO', value: fechaLegible });
+  }
+
+  const passJson = {
+    formatVersion: 1,
+    passTypeIdentifier: process.env.APPLE_PASS_TYPE_IDENTIFIER,
+    teamIdentifier: process.env.APPLE_TEAM_IDENTIFIER,
+    organizationName: 'ZAIRO',
+    description: `Entrada ${nombreEvento}`,
+    serialNumber: entrada.uuid_entrada,
+    logoText: 'ZAIRO',
+    foregroundColor: 'rgb(255,255,255)',
+    backgroundColor: 'rgb(4,12,7)',
+    labelColor: 'rgb(198,255,87)',
+    sharingProhibited: true,
+    voided: usada,
+    relevantDate: toIsoDate(entrada.fecha_evento),
+    barcodes: [
+      {
+        message: qrData,
+        format: 'PKBarcodeFormatQR',
+        messageEncoding: 'iso-8859-1',
+        altText: 'ZAIRO'
+      }
+    ],
+    eventTicket: {
+      headerFields: fechaLegible
+        ? [{ key: 'header', label: 'ZAIRO', value: 'ENTRADA' }]
+        : [],
+      primaryFields: [
+        { key: 'event', label: 'EVENTO', value: nombreEvento }
+      ],
+      secondaryFields: [
+        { key: 'ticket', label: 'ENTRADA', value: entrada.entrada || 'Entrada' },
+        { key: 'name', label: 'PERSONA', value: entrada.nombre_completo || '' }
+      ],
+      auxiliaryFields,
+      backFields: [
         {
-          message: qrData,
-          format: 'PKBarcodeFormatQR',
-          messageEncoding: 'iso-8859-1'
-        }
+          key: 'terms',
+          label: 'Importante',
+          value: 'Entrada personal válida para un único ingreso. Se solicitará identificación oficial al ingresar.'
+        },
+        {
+          key: 'estado',
+          label: 'Estado',
+          value: usada ? 'Entrada ya utilizada' : 'Entrada válida'
+        },
+        {
+          key: 'url',
+          label: 'Ver entrada online',
+          value: getTicketUrl(entrada.uuid_entrada),
+          dataDetectorTypes: ['PKDataDetectorTypeLink']
+        },
+        { key: 'serial', label: 'ID de entrada', value: entrada.uuid_entrada }
       ]
-    })),
-    'icon.png': qrPng,
-    'icon@2x.png': qrPng,
-    'logo.png': qrPng,
-    'logo@2x.png': qrPng
-  }, {
-    signerCert: Buffer.from(process.env.APPLE_WALLET_CERT_PEM.replace(/\\n/g, '\n')),
-    signerKey: Buffer.from(process.env.APPLE_WALLET_KEY_PEM.replace(/\\n/g, '\n')),
-    wwdr: Buffer.from(process.env.APPLE_WWDR_PEM.replace(/\\n/g, '\n')),
-    signerKeyPassphrase: process.env.APPLE_WALLET_KEY_PASSPHRASE || undefined
-  });
+    }
+  };
+
+  const pass = new PKPass(
+    {
+      'pass.json': Buffer.from(JSON.stringify(passJson)),
+      ...loadApplePassImages()
+    },
+    {
+      signerCert: Buffer.from(process.env.APPLE_WALLET_CERT_PEM.replace(/\\n/g, '\n')),
+      signerKey: Buffer.from(process.env.APPLE_WALLET_KEY_PEM.replace(/\\n/g, '\n')),
+      wwdr: Buffer.from(process.env.APPLE_WWDR_PEM.replace(/\\n/g, '\n')),
+      signerKeyPassphrase: process.env.APPLE_WALLET_KEY_PASSPHRASE || undefined
+    }
+  );
 
   return pass.getAsBuffer();
 };
