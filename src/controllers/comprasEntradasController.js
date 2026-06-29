@@ -4,6 +4,7 @@ const QRCode = require('qrcode');
 
 const emailService = require('../services/emailService');
 const walletService = require('../services/walletService');
+const { evaluarCodigo } = require('./codigosDescuentoController');
 
 const uuidRegex =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -52,7 +53,8 @@ exports.crearCompra = async (req, res) => {
       id_tier,
       correo_comprador,
       telefono_comprador,
-      personas
+      personas,
+      codigo_descuento
     } = req.body;
 
     if (!id_evento || !id_tier) {
@@ -125,13 +127,30 @@ exports.crearCompra = async (req, res) => {
 
     const tier = tierResult.rows[0];
     const cantidad = personas.length;
-    const total = Number(tier.precio) * cantidad;
+    const subtotal = Number(tier.precio) * cantidad;
+
+    // Aplicar código de descuento si el comprador ingresó uno.
+    let descuento = 0;
+    let idCodigo = null;
+
+    if (codigo_descuento && codigo_descuento.toString().trim()) {
+      const evaluacion = await evaluarCodigo(codigo_descuento, id_evento, subtotal);
+
+      if (!evaluacion.ok) {
+        return res.status(400).json({ message: evaluacion.error });
+      }
+
+      descuento = evaluacion.descuento;
+      idCodigo = evaluacion.codigo.id_codigo;
+    }
+
+    const total = Math.round((subtotal - descuento) * 100) / 100;
 
     const compraResult = await pool.query(
       `
       INSERT INTO compras_entradas
-      (id_evento, id_tier, correo_comprador, telefono_comprador, cantidad, total)
-      VALUES ($1,$2,$3,$4,$5,$6)
+      (id_evento, id_tier, correo_comprador, telefono_comprador, cantidad, subtotal, descuento, total, id_codigo)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
       RETURNING *
       `,
       [
@@ -140,11 +159,24 @@ exports.crearCompra = async (req, res) => {
         correo_comprador.trim(),
         telefono_comprador.trim(),
         cantidad,
-        total
+        subtotal,
+        descuento,
+        total,
+        idCodigo
       ]
     );
 
     const compra = compraResult.rows[0];
+
+    // Registrar el uso del código una vez creada la compra.
+    if (idCodigo) {
+      await pool.query(
+        `UPDATE codigos_descuento
+         SET usos_actuales = usos_actuales + 1
+         WHERE id_codigo = $1`,
+        [idCodigo]
+      );
+    }
 
     for (const persona of personas) {
       await pool.query(
