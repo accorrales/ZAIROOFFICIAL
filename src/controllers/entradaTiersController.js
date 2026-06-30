@@ -6,8 +6,19 @@ const obtenerTiersPorEvento = async (req, res) => {
   try {
     const result = await pool.query(
       `
-      SELECT 
-        *,
+      SELECT
+        id_tier,
+        id_evento,
+        nombre,
+        descripcion,
+        precio,
+        cantidad_disponible,
+        estado,
+        -- Se devuelven las fechas como texto en hora de Costa Rica
+        -- (formato datetime-local) para que el front muestre exactamente
+        -- la hora guardada, sin conversiones de zona horaria.
+        to_char(fecha_inicio AT TIME ZONE 'America/Costa_Rica', 'YYYY-MM-DD"T"HH24:MI') AS fecha_inicio,
+        to_char(fecha_fin    AT TIME ZONE 'America/Costa_Rica', 'YYYY-MM-DD"T"HH24:MI') AS fecha_fin,
         CASE
           WHEN estado = false THEN 'DESACTIVADO'
           WHEN cantidad_disponible IS NOT NULL AND cantidad_disponible <= 0 THEN 'AGOTADO'
@@ -44,7 +55,12 @@ const crearTier = async (req, res) => {
     const result = await pool.query(
       `INSERT INTO entrada_tiers
        (id_evento, nombre, descripcion, precio, fecha_inicio, fecha_fin, cantidad_disponible)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       VALUES (
+         $1,$2,$3,$4,
+         ($5)::timestamp AT TIME ZONE 'America/Costa_Rica',
+         ($6)::timestamp AT TIME ZONE 'America/Costa_Rica',
+         $7
+       )
        RETURNING *`,
       [
         id_evento,
@@ -83,8 +99,8 @@ const actualizarTier = async (req, res) => {
        SET nombre = $1,
            descripcion = $2,
            precio = $3,
-           fecha_inicio = $4,
-           fecha_fin = $5,
+           fecha_inicio = ($4)::timestamp AT TIME ZONE 'America/Costa_Rica',
+           fecha_fin = ($5)::timestamp AT TIME ZONE 'America/Costa_Rica',
            cantidad_disponible = $6,
            estado = $7
        WHERE id_tier = $8

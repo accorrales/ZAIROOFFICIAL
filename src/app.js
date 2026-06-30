@@ -18,6 +18,7 @@ const entradasRoutes = require('./routes/entradasRoutes');
 const entradaTiersRoutes = require('./routes/entradaTiersRoutes');
 const comprasEntradasRoutes = require('./routes/comprasEntradasRoutes');
 const codigosDescuentoRoutes = require('./routes/codigosDescuentoRoutes');
+const entradasConfirmadasRoutes = require('./routes/entradasConfirmadasRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -49,6 +50,7 @@ app.use('/api/entradas', entradasRoutes);
 app.use('/api/entrada-tiers', entradaTiersRoutes);
 app.use('/api/compras-entradas', comprasEntradasRoutes);
 app.use('/api/codigos-descuento', codigosDescuentoRoutes);
+app.use('/api/dashboard-entradas', entradasConfirmadasRoutes);
 
 app.get('/api/prueba-dashboard', (req, res) => {
   res.json({ mensaje: 'Ruta directa funcionando' });
