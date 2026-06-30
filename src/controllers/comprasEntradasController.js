@@ -507,6 +507,14 @@ exports.validarQr = async (req, res) => {
       });
     }
 
+    if (entrada.estado === 'INVALIDADA') {
+      return res.status(400).json({
+        valido: false,
+        message: 'Esta entrada fue invalidada. Acceso denegado.',
+        entrada
+      });
+    }
+
     if (entrada.estado === 'USADA') {
       return res.status(400).json({
         valido: false,

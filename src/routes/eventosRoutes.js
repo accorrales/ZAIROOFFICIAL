@@ -8,6 +8,7 @@ const {
   actualizarEvento,
   desactivarEvento,
   reactivarEvento,
+  eliminarEvento,
   obtenerEventoPorId
 } = require('../controllers/eventosController');
 
@@ -17,6 +18,7 @@ router.post('/', crearEvento);
 router.put('/:id', actualizarEvento);
 router.patch('/:id/desactivar', desactivarEvento);
 router.patch('/:id/reactivar', reactivarEvento);
+router.delete('/:id', eliminarEvento);
 router.get('/:id', obtenerEventoPorId);
 
 module.exports = router;

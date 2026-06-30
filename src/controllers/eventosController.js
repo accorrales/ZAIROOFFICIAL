@@ -138,6 +138,66 @@ const reactivarEvento = async (req, res) => {
   }
 };
 
+// Eliminar evento por completo.
+// Política segura: si el evento ya tiene compras asociadas NO se borra
+// (se devuelve 409 para que el admin lo desactive/archive en su lugar).
+// Si no tiene compras, se eliminan sus tiers y el evento dentro de una
+// transacción, respetando las llaves foráneas.
+const eliminarEvento = async (req, res) => {
+  const { id } = req.params;
+
+  const client = await pool.connect();
+
+  try {
+    const eventoResult = await client.query(
+      `SELECT id_evento, nombre FROM eventos WHERE id_evento = $1`,
+      [id]
+    );
+
+    if (eventoResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Evento no encontrado' });
+    }
+
+    const compras = await client.query(
+      `SELECT COUNT(*) AS total FROM compras_entradas WHERE id_evento = $1`,
+      [id]
+    );
+
+    if (Number(compras.rows[0].total) > 0) {
+      return res.status(409).json({
+        error:
+          'Este evento ya tiene compras asociadas y no se puede eliminar. Desactivalo para archivarlo sin perder el historial de ventas.'
+      });
+    }
+
+    await client.query('BEGIN');
+
+    // Quitar la referencia de códigos de descuento que apunten al evento.
+    // La tabla puede no existir si no se aplicó esa migración, por eso es tolerante.
+    try {
+      await client.query(
+        `UPDATE codigos_descuento SET id_evento = NULL WHERE id_evento = $1`,
+        [id]
+      );
+    } catch (e) {
+      // codigos_descuento todavía no existe: se ignora.
+    }
+
+    await client.query(`DELETE FROM entrada_tiers WHERE id_evento = $1`, [id]);
+    await client.query(`DELETE FROM eventos WHERE id_evento = $1`, [id]);
+
+    await client.query('COMMIT');
+
+    res.json({ mensaje: 'Evento eliminado correctamente' });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error(error);
+    res.status(500).json({ error: 'Error al eliminar el evento' });
+  } finally {
+    client.release();
+  }
+};
+
 const obtenerEventoPorId = async (req, res) => {
   const { id } = req.params;
 
@@ -168,5 +228,6 @@ module.exports = {
   actualizarEvento,
   desactivarEvento,
   reactivarEvento,
+  eliminarEvento,
   obtenerEventoPorId
 };
