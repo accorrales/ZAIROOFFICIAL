@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 require('dotenv').config();
 
 const pool = require('./config/database');
@@ -22,6 +23,10 @@ const entradasConfirmadasRoutes = require('./routes/entradasConfirmadasRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Comprime las respuestas JSON (gzip/br) antes de enviarlas: mismo contenido,
+// muchos menos bytes por la red, sobre todo en datos móviles.
+app.use(compression());
 
 app.use(cors({
   origin: [
