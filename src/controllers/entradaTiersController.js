@@ -132,21 +132,50 @@ const eliminarTier = async (req, res) => {
   const { id } = req.params;
 
   try {
-    await pool.query(
+    // Un tier no puede eliminarse si ya tiene ventas asociadas
+    // (entradas o compras), porque hay claves foráneas que apuntan a él.
+    // Antes esto provocaba un error 23503 de Postgres que terminaba en 500.
+    const { rows } = await pool.query(
+      `SELECT
+         (SELECT COUNT(*) FROM entradas         WHERE id_tier = $1) AS entradas,
+         (SELECT COUNT(*) FROM compras_entradas WHERE id_tier = $1) AS compras`,
+      [id]
+    );
+
+    const totalRelacionados =
+      Number(rows[0].entradas) + Number(rows[0].compras);
+
+    if (totalRelacionados > 0) {
+      return res.status(409).json({
+        error:
+          'No se puede eliminar el tier porque ya tiene entradas o compras asociadas. ' +
+          'Desactívalo en su lugar para dejar de venderlo.'
+      });
+    }
+
+    const result = await pool.query(
       `DELETE FROM entrada_tiers WHERE id_tier = $1`,
       [id]
     );
 
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Tier no encontrado' });
+    }
+
     res.json({ mensaje: 'Tier eliminado correctamente' });
   } catch (error) {
     console.error(error);
+
+    // Respaldo: si aún así se viola una clave foránea, devolvemos un
+    // mensaje claro (409) en lugar de un 500 genérico.
+    if (error.code === '23503') {
+      return res.status(409).json({
+        error:
+          'No se puede eliminar el tier porque tiene registros asociados. ' +
+          'Desactívalo en su lugar para dejar de venderlo.'
+      });
+    }
+
     res.status(500).json({ error: 'Error al eliminar tier' });
   }
-};
-
-module.exports = {
-  obtenerTiersPorEvento,
-  crearTier,
-  actualizarTier,
-  eliminarTier
 };
