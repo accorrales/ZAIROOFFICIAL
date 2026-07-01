@@ -14,9 +14,6 @@ const obtenerTiersPorEvento = async (req, res) => {
         precio,
         cantidad_disponible,
         estado,
-        -- Se devuelven las fechas como texto en hora de Costa Rica
-        -- (formato datetime-local) para que el front muestre exactamente
-        -- la hora guardada, sin conversiones de zona horaria.
         to_char(fecha_inicio AT TIME ZONE 'America/Costa_Rica', 'YYYY-MM-DD"T"HH24:MI') AS fecha_inicio,
         to_char(fecha_fin    AT TIME ZONE 'America/Costa_Rica', 'YYYY-MM-DD"T"HH24:MI') AS fecha_fin,
         CASE
@@ -178,4 +175,11 @@ const eliminarTier = async (req, res) => {
 
     res.status(500).json({ error: 'Error al eliminar tier' });
   }
+};
+
+module.exports = {
+  obtenerTiersPorEvento,
+  crearTier,
+  actualizarTier,
+  eliminarTier
 };
