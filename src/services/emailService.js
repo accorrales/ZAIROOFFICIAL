@@ -422,18 +422,32 @@ exports.enviarUbicacion = async ({
       })
     : '';
 
+  // Divisor ornamental (◆ ✦ ◆) que reutiliza el mismo motivo del flyer de
+  // Lost Trip, para que el correo se sienta parte de la misma pieza gráfica.
+  const divisor = `
+    <table role="presentation" align="center" cellpadding="0" cellspacing="0" style="margin:26px auto;">
+      <tr>
+        <td style="padding:0 10px; color:#ffd60a; font-size:14px;">◆</td>
+        <td style="padding:0 2px; color:#c6ff57; font-size:10px;">✦</td>
+        <td style="padding:0 2px; color:#ffd60a; font-size:16px;">✦</td>
+        <td style="padding:0 2px; color:#c6ff57; font-size:10px;">✦</td>
+        <td style="padding:0 10px; color:#ffd60a; font-size:14px;">◆</td>
+      </tr>
+    </table>
+  `;
+
   const { data, error } = await resend.emails.send({
     from: process.env.EMAIL_FROM || 'ZAIRO <onboarding@resend.dev>',
     to: [correo],
-    subject: 'ZAIRO LOST TRIP — Ubicación revelada',
+    subject: 'ZAIRO LOST TRIP — Ubicación revelada 🌴',
     html: `
       <div style="
         margin:0;
         padding:44px 18px;
         background:
-          radial-gradient(circle at top left, rgba(198,255,87,0.16), transparent 28%),
-          radial-gradient(circle at top right, rgba(255,214,10,0.14), transparent 30%),
-          linear-gradient(180deg, #020403 0%, #061008 42%, #020403 100%);
+          radial-gradient(circle at top left, rgba(198,255,87,0.18), transparent 30%),
+          radial-gradient(circle at top right, rgba(255,214,10,0.16), transparent 32%),
+          linear-gradient(180deg, #020e05 0%, #041a0a 40%, #020e05 100%);
         font-family:Arial, Helvetica, sans-serif;
         color:#ffffff;
       ">
@@ -441,30 +455,36 @@ exports.enviarUbicacion = async ({
         <div style="
           max-width:680px;
           margin:0 auto;
-          background:linear-gradient(180deg, rgba(7,18,11,0.98), rgba(3,10,6,0.98));
+          background:linear-gradient(180deg, rgba(4,20,10,0.98), rgba(2,10,5,0.98));
           border-radius:32px;
           overflow:hidden;
-          border:1px solid rgba(198,255,87,0.22);
-          box-shadow:0 28px 80px rgba(0,0,0,0.45), 0 0 55px rgba(198,255,87,0.08);
+          border:1px solid rgba(198,255,87,0.24);
+          box-shadow:0 28px 80px rgba(0,0,0,0.5), 0 0 60px rgba(34,197,94,0.10);
         ">
 
           <div style="
-            padding:54px 32px 44px;
-            background:radial-gradient(circle at center top, rgba(198,255,87,0.18), transparent 42%), linear-gradient(135deg, #07120b 0%, #020403 100%);
+            padding:46px 32px 40px;
+            background:
+              radial-gradient(circle at center top, rgba(198,255,87,0.20), transparent 45%),
+              linear-gradient(135deg, #06180d 0%, #020e05 100%);
             text-align:center;
-            border-bottom:1px solid rgba(198,255,87,0.16);
+            border-bottom:1px solid rgba(198,255,87,0.18);
           ">
+
+            <div style="font-size:20px; letter-spacing:6px; margin-bottom:18px; opacity:.85;">
+              🌴&nbsp;&nbsp;🌿&nbsp;&nbsp;🌴
+            </div>
 
             <table role="presentation" align="center" cellpadding="0" cellspacing="0" style="margin:0 auto; border-collapse:separate;">
               <tr>
                 <td align="center" valign="middle" style="
-                  width:112px;
-                  height:112px;
-                  border-radius:28px;
-                  background:radial-gradient(circle at top, rgba(198,255,87,0.18), transparent 55%), rgba(3,14,8,0.92);
-                  border:1px solid rgba(198,255,87,0.38);
-                  box-shadow:0 0 28px rgba(198,255,87,0.20), 0 0 44px rgba(255,214,10,0.10), inset 0 0 24px rgba(255,255,255,0.04);
-                  padding:10px;
+                  width:100px;
+                  height:100px;
+                  border-radius:26px;
+                  background:radial-gradient(circle at top, rgba(198,255,87,0.20), transparent 55%), rgba(3,14,8,0.92);
+                  border:1px solid rgba(198,255,87,0.4);
+                  box-shadow:0 0 28px rgba(198,255,87,0.22), 0 0 44px rgba(255,214,10,0.12), inset 0 0 24px rgba(255,255,255,0.04);
+                  padding:9px;
                   box-sizing:border-box;
                   text-align:center;
                   line-height:0;
@@ -473,15 +493,15 @@ exports.enviarUbicacion = async ({
                   <img
                     src="${logoUrl}"
                     alt="Logo ZAIRO"
-                    width="92"
-                    height="92"
+                    width="82"
+                    height="82"
                     style="
-                      width:92px;
-                      height:92px;
+                      width:82px;
+                      height:82px;
                       object-fit:contain;
                       display:block;
                       margin:0 auto;
-                      border-radius:20px;
+                      border-radius:18px;
                       border:0;
                       outline:none;
                       text-decoration:none;
@@ -491,50 +511,67 @@ exports.enviarUbicacion = async ({
               </tr>
             </table>
 
-            <h1 style="
-              margin:24px 0 8px;
-              font-size:40px;
+            <p style="
+              margin:22px 0 0;
+              color:#c6ff57;
+              font-size:12px;
               letter-spacing:5px;
-              line-height:1;
-              color:#ffffff;
+              font-weight:900;
             ">
-              ZAIRO
+              PRESENTA
+            </p>
+
+            <h1 style="
+              margin:6px 0 0;
+              font-size:56px;
+              font-weight:900;
+              letter-spacing:3px;
+              line-height:0.98;
+              color:#ffd60a;
+              text-shadow:
+                0 2px 0 #c99a00,
+                0 4px 14px rgba(255,214,10,0.35),
+                0 0 40px rgba(255,214,10,0.25);
+            ">
+              LOST TRIP
             </h1>
 
             <p style="
-              color:#c6ff57;
-              font-size:13px;
-              letter-spacing:3px;
+              margin:14px 0 0;
+              font-size:15px;
+              letter-spacing:2px;
               font-weight:800;
-              margin:0;
             ">
-              LOST TRIP • UBICACIÓN REVELADA
+              <span style="color:#e5f2dc;">WELCOME TO THE</span>
+              <span style="color:#4ade80;">&nbsp;JUNGLE</span>
             </p>
 
-          </div>
-
-          <div style="padding:42px 34px;">
+            ${divisor}
 
             <div style="
               display:inline-block;
-              padding:8px 13px;
+              padding:8px 16px;
               border-radius:999px;
               background:rgba(255,214,10,0.10);
-              border:1px solid rgba(255,214,10,0.25);
+              border:1px solid rgba(255,214,10,0.28);
               color:#ffd60a;
               font-size:11px;
               letter-spacing:2px;
               font-weight:900;
-              margin-bottom:16px;
             ">
-              ACCESO CONFIDENCIAL
+              🔒 ACCESO CONFIDENCIAL · UBICACIÓN REVELADA
             </div>
+
+          </div>
+
+          <div style="padding:40px 34px 42px;">
 
             <h2 style="
               margin:0 0 14px;
-              font-size:28px;
-              line-height:1.25;
+              font-size:26px;
+              line-height:1.3;
               color:#ffffff;
+              text-align:center;
             ">
               La selva ya abrió el camino 🌴
             </h2>
@@ -544,21 +581,27 @@ exports.enviarUbicacion = async ({
               line-height:1.75;
               font-size:15px;
               margin:0 0 8px;
+              text-align:center;
             ">
               Faltan pocos días para <strong style="color:#ffffff;">${escapeHtml(evento)}</strong> y esta es la ubicación oficial del evento:
             </p>
 
-            ${fechaTexto ? `<p style="color:#8fa27d; font-size:13px; margin:8px 0 0;">Fecha del evento: <strong style="color:#c6ff57;">${escapeHtml(fechaTexto)}</strong></p>` : ''}
+            ${fechaTexto ? `<p style="color:#8fa27d; font-size:13px; margin:8px 0 0; text-align:center;">📅 ${escapeHtml(fechaTexto)}</p>` : ''}
 
             <div style="
               margin:32px 0;
-              padding:26px;
-              border-radius:24px;
-              background:linear-gradient(135deg, rgba(198,255,87,0.08), rgba(255,214,10,0.04)), #08130c;
-              border:1px solid rgba(198,255,87,0.20);
+              padding:30px 26px;
+              border-radius:26px;
+              background:
+                radial-gradient(circle at top, rgba(255,214,10,0.10), transparent 55%),
+                linear-gradient(135deg, rgba(198,255,87,0.09), rgba(255,214,10,0.05)),
+                #051c0d;
+              border:1px solid rgba(255,214,10,0.30);
               color:#ffffff;
               text-align:center;
             ">
+
+              <div style="font-size:26px; margin-bottom:12px;">📍</div>
 
               <div style="
                 font-size:11px;
@@ -571,10 +614,11 @@ exports.enviarUbicacion = async ({
               </div>
 
               <div style="
-                font-size:22px;
+                font-size:24px;
                 font-weight:900;
-                color:#c6ff57;
-                margin-bottom:20px;
+                color:#ffd60a;
+                margin-bottom:22px;
+                text-shadow:0 2px 12px rgba(255,214,10,0.25);
               ">
                 ${escapeHtml(ubicacionNombre)}
               </div>
@@ -592,25 +636,25 @@ exports.enviarUbicacion = async ({
               <div style="
                 font-size:15px;
                 color:#e5f2dc;
-                margin-bottom:24px;
+                margin-bottom:26px;
                 line-height:1.6;
               ">
                 ${escapeHtml(ubicacionDireccion)}
               </div>
 
               <div>
-                ${botonUbicacion(googleMapsUrl, 'Abrir en Google Maps', '#ffd60a', '#07120b')}
-                ${botonUbicacion(wazeUrl, 'Abrir en Waze', '#c6ff57', '#07120b')}
+                ${botonUbicacion(googleMapsUrl, '🗺️ Abrir en Google Maps', '#ffd60a', '#07120b')}
+                ${botonUbicacion(wazeUrl, '🚗 Abrir en Waze', '#4ade80', '#07120b')}
               </div>
 
             </div>
 
             <div style="
               margin-top:20px;
-              padding:24px;
+              padding:22px 24px;
               border-radius:22px;
               background:radial-gradient(circle at top left, rgba(198,255,87,0.12), transparent 45%), #03170e;
-              border:1px solid rgba(52,211,153,0.30);
+              border:1px solid rgba(52,211,153,0.32);
             ">
 
               <p style="
@@ -619,30 +663,33 @@ exports.enviarUbicacion = async ({
                 color:#d8e8ce;
                 font-size:14px;
               ">
-                Recordá llevar tu entrada QR lista en el celular. La entrada es personal y será validada en puerta.
+                🎟️ Recordá llevar tu entrada QR lista en el celular. La entrada es personal y será validada en puerta.
               </p>
 
             </div>
 
+            ${divisor}
+
             <p style="
-              margin-top:32px;
+              margin:0;
               text-align:center;
               color:#c6ff57;
-              font-size:16px;
-              font-weight:800;
+              font-size:17px;
+              font-weight:900;
+              letter-spacing:.5px;
             ">
-              Nos vemos dentro del trip.
+              Nos vemos dentro del trip 🌴
             </p>
 
             <div style="
               margin-top:32px;
-              padding-top:24px;
+              padding-top:22px;
               border-top:1px solid rgba(198,255,87,0.14);
               text-align:center;
               color:#8fa27d;
               font-size:13px;
             ">
-              <strong style="color:#c6ff57;">ZAIRO</strong><br>
+              <strong style="color:#ffd60a; letter-spacing:2px;">ZAIRO</strong><br>
               © 2026 • Official Digital Access
             </div>
 
