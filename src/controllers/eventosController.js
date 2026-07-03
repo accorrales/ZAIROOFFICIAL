@@ -198,6 +198,10 @@ const eliminarEvento = async (req, res) => {
   }
 };
 
+// Endpoint público: nunca debe filtrar la ubicación secreta antes de tiempo.
+// Solo se exponen esos campos si el admin marcó la ubicación como visible
+// públicamente (ubicacion_visible_publicamente); de lo contrario se ocultan
+// por completo, incluso si ya se envió por correo a los compradores.
 const obtenerEventoPorId = async (req, res) => {
   const { id } = req.params;
 
@@ -214,7 +218,17 @@ const obtenerEventoPorId = async (req, res) => {
       return res.status(404).json({ error: 'Evento no encontrado' });
     }
 
-    res.json(result.rows[0]);
+    const evento = { ...result.rows[0] };
+
+    if (!evento.ubicacion_visible_publicamente) {
+      delete evento.ubicacion_secreta_nombre;
+      delete evento.ubicacion_secreta_direccion;
+      delete evento.ubicacion_secreta_google_maps_url;
+      delete evento.ubicacion_secreta_waze_url;
+      delete evento.ubicacion_envio_programado_at;
+    }
+
+    res.json(evento);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al obtener evento' });

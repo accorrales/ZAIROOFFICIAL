@@ -380,3 +380,283 @@ exports.enviarEntradas = async ({
 
   return data;
 };
+
+const botonUbicacion = (href, label, bg, color = '#07120b') => {
+  if (!href) return '';
+
+  return `
+    <a href="${href}" target="_blank" style="
+      display:inline-block;
+      margin:6px 5px 0;
+      padding:14px 22px;
+      border-radius:999px;
+      background:${bg};
+      color:${color};
+      text-decoration:none;
+      font-size:13px;
+      font-weight:900;
+      letter-spacing:.6px;
+      border:1px solid rgba(255,255,255,.14);
+    ">
+      ${label}
+    </a>
+  `;
+};
+
+exports.enviarUbicacion = async ({
+  correo,
+  evento,
+  fechaEvento,
+  ubicacionNombre,
+  ubicacionDireccion,
+  googleMapsUrl,
+  wazeUrl
+}) => {
+  const logoUrl = getLogoUrl();
+
+  const fechaTexto = fechaEvento
+    ? new Date(fechaEvento).toLocaleDateString('es-CR', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric'
+      })
+    : '';
+
+  const { data, error } = await resend.emails.send({
+    from: process.env.EMAIL_FROM || 'ZAIRO <onboarding@resend.dev>',
+    to: [correo],
+    subject: 'ZAIRO LOST TRIP — Ubicación revelada',
+    html: `
+      <div style="
+        margin:0;
+        padding:44px 18px;
+        background:
+          radial-gradient(circle at top left, rgba(198,255,87,0.16), transparent 28%),
+          radial-gradient(circle at top right, rgba(255,214,10,0.14), transparent 30%),
+          linear-gradient(180deg, #020403 0%, #061008 42%, #020403 100%);
+        font-family:Arial, Helvetica, sans-serif;
+        color:#ffffff;
+      ">
+
+        <div style="
+          max-width:680px;
+          margin:0 auto;
+          background:linear-gradient(180deg, rgba(7,18,11,0.98), rgba(3,10,6,0.98));
+          border-radius:32px;
+          overflow:hidden;
+          border:1px solid rgba(198,255,87,0.22);
+          box-shadow:0 28px 80px rgba(0,0,0,0.45), 0 0 55px rgba(198,255,87,0.08);
+        ">
+
+          <div style="
+            padding:54px 32px 44px;
+            background:radial-gradient(circle at center top, rgba(198,255,87,0.18), transparent 42%), linear-gradient(135deg, #07120b 0%, #020403 100%);
+            text-align:center;
+            border-bottom:1px solid rgba(198,255,87,0.16);
+          ">
+
+            <table role="presentation" align="center" cellpadding="0" cellspacing="0" style="margin:0 auto; border-collapse:separate;">
+              <tr>
+                <td align="center" valign="middle" style="
+                  width:112px;
+                  height:112px;
+                  border-radius:28px;
+                  background:radial-gradient(circle at top, rgba(198,255,87,0.18), transparent 55%), rgba(3,14,8,0.92);
+                  border:1px solid rgba(198,255,87,0.38);
+                  box-shadow:0 0 28px rgba(198,255,87,0.20), 0 0 44px rgba(255,214,10,0.10), inset 0 0 24px rgba(255,255,255,0.04);
+                  padding:10px;
+                  box-sizing:border-box;
+                  text-align:center;
+                  line-height:0;
+                  font-size:0;
+                ">
+                  <img
+                    src="${logoUrl}"
+                    alt="Logo ZAIRO"
+                    width="92"
+                    height="92"
+                    style="
+                      width:92px;
+                      height:92px;
+                      object-fit:contain;
+                      display:block;
+                      margin:0 auto;
+                      border-radius:20px;
+                      border:0;
+                      outline:none;
+                      text-decoration:none;
+                    "
+                  />
+                </td>
+              </tr>
+            </table>
+
+            <h1 style="
+              margin:24px 0 8px;
+              font-size:40px;
+              letter-spacing:5px;
+              line-height:1;
+              color:#ffffff;
+            ">
+              ZAIRO
+            </h1>
+
+            <p style="
+              color:#c6ff57;
+              font-size:13px;
+              letter-spacing:3px;
+              font-weight:800;
+              margin:0;
+            ">
+              LOST TRIP • UBICACIÓN REVELADA
+            </p>
+
+          </div>
+
+          <div style="padding:42px 34px;">
+
+            <div style="
+              display:inline-block;
+              padding:8px 13px;
+              border-radius:999px;
+              background:rgba(255,214,10,0.10);
+              border:1px solid rgba(255,214,10,0.25);
+              color:#ffd60a;
+              font-size:11px;
+              letter-spacing:2px;
+              font-weight:900;
+              margin-bottom:16px;
+            ">
+              ACCESO CONFIDENCIAL
+            </div>
+
+            <h2 style="
+              margin:0 0 14px;
+              font-size:28px;
+              line-height:1.25;
+              color:#ffffff;
+            ">
+              La selva ya abrió el camino 🌴
+            </h2>
+
+            <p style="
+              color:#cbd5c1;
+              line-height:1.75;
+              font-size:15px;
+              margin:0 0 8px;
+            ">
+              Faltan pocos días para <strong style="color:#ffffff;">${escapeHtml(evento)}</strong> y esta es la ubicación oficial del evento:
+            </p>
+
+            ${fechaTexto ? `<p style="color:#8fa27d; font-size:13px; margin:8px 0 0;">Fecha del evento: <strong style="color:#c6ff57;">${escapeHtml(fechaTexto)}</strong></p>` : ''}
+
+            <div style="
+              margin:32px 0;
+              padding:26px;
+              border-radius:24px;
+              background:linear-gradient(135deg, rgba(198,255,87,0.08), rgba(255,214,10,0.04)), #08130c;
+              border:1px solid rgba(198,255,87,0.20);
+              color:#ffffff;
+              text-align:center;
+            ">
+
+              <div style="
+                font-size:11px;
+                letter-spacing:2px;
+                color:#8fa27d;
+                margin-bottom:8px;
+                font-weight:800;
+              ">
+                NOMBRE DEL LUGAR
+              </div>
+
+              <div style="
+                font-size:22px;
+                font-weight:900;
+                color:#c6ff57;
+                margin-bottom:20px;
+              ">
+                ${escapeHtml(ubicacionNombre)}
+              </div>
+
+              <div style="
+                font-size:11px;
+                letter-spacing:2px;
+                color:#8fa27d;
+                margin-bottom:8px;
+                font-weight:800;
+              ">
+                DIRECCIÓN
+              </div>
+
+              <div style="
+                font-size:15px;
+                color:#e5f2dc;
+                margin-bottom:24px;
+                line-height:1.6;
+              ">
+                ${escapeHtml(ubicacionDireccion)}
+              </div>
+
+              <div>
+                ${botonUbicacion(googleMapsUrl, 'Abrir en Google Maps', '#ffd60a', '#07120b')}
+                ${botonUbicacion(wazeUrl, 'Abrir en Waze', '#c6ff57', '#07120b')}
+              </div>
+
+            </div>
+
+            <div style="
+              margin-top:20px;
+              padding:24px;
+              border-radius:22px;
+              background:radial-gradient(circle at top left, rgba(198,255,87,0.12), transparent 45%), #03170e;
+              border:1px solid rgba(52,211,153,0.30);
+            ">
+
+              <p style="
+                margin:0;
+                line-height:1.8;
+                color:#d8e8ce;
+                font-size:14px;
+              ">
+                Recordá llevar tu entrada QR lista en el celular. La entrada es personal y será validada en puerta.
+              </p>
+
+            </div>
+
+            <p style="
+              margin-top:32px;
+              text-align:center;
+              color:#c6ff57;
+              font-size:16px;
+              font-weight:800;
+            ">
+              Nos vemos dentro del trip.
+            </p>
+
+            <div style="
+              margin-top:32px;
+              padding-top:24px;
+              border-top:1px solid rgba(198,255,87,0.14);
+              text-align:center;
+              color:#8fa27d;
+              font-size:13px;
+            ">
+              <strong style="color:#c6ff57;">ZAIRO</strong><br>
+              © 2026 • Official Digital Access
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+    `
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
+};
