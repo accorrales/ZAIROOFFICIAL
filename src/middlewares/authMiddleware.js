@@ -33,4 +33,20 @@ const verificarToken = (req, res, next) => {
 
 };
 
+// Requiere que el token ya haya sido verificado (usar después de
+// verificarToken). Solo deja pasar a usuarios con rol 'admin'.
+const requiereAdmin = (req, res, next) => {
+
+    if (!req.user || String(req.user.rol).toLowerCase() !== 'admin') {
+        return res.status(403).json({
+            message: 'Acceso restringido a administradores'
+        });
+    }
+
+    next();
+
+};
+
 module.exports = verificarToken;
+module.exports.verificarToken = verificarToken;
+module.exports.requiereAdmin = requiereAdmin;
