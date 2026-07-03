@@ -23,8 +23,11 @@ const obtenerUbicacionPreview = async (req, res) => {
 // POST /api/eventos/:id/enviar-ubicacion (admin)
 // Envío manual, sin esperar al cron, siempre que el evento tenga ubicación
 // configurada. Reutiliza el mismo servicio y respeta el anti-duplicados.
+// Si el body trae "id_compra", el envío es individual (solo a ese
+// comprador); si no, se manda a todas las compras PAGADAS pendientes.
 const enviarUbicacionManual = async (req, res) => {
   const { id } = req.params;
+  const { id_compra } = req.body || {};
 
   try {
     const eventoResult = await pool.query(`SELECT * FROM eventos WHERE id_evento = $1`, [id]);
@@ -41,6 +44,20 @@ const enviarUbicacionManual = async (req, res) => {
       });
     }
 
+    if (id_compra) {
+      const resultado = await locationNotificationService.enviarUbicacionAUnaCompra(evento, id_compra, 'MANUAL');
+
+      const mensajes = {
+        ENVIADO: 'Ubicación enviada a este comprador correctamente',
+        OMITIDO: 'Este comprador ya había recibido la ubicación antes'
+      };
+
+      return res.json({
+        message: mensajes[resultado.estado] || 'Envío procesado',
+        resultado
+      });
+    }
+
     const resumen = await locationNotificationService.enviarUbicacionEvento(evento, { canal: 'MANUAL' });
 
     res.json({
@@ -49,6 +66,11 @@ const enviarUbicacionManual = async (req, res) => {
     });
   } catch (error) {
     console.error('ERROR ENVIANDO UBICACION MANUAL:', error);
+
+    if (error.message === 'La compra no existe o no está pagada para este evento') {
+      return res.status(404).json({ message: error.message });
+    }
+
     res.status(500).json({ message: error.message || 'Error enviando la ubicación' });
   }
 };
