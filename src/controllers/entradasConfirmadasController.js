@@ -19,6 +19,8 @@ const obtenerEntradasPorEvento = async (req, res) => {
         d.nombre_completo,
         d.fecha_nacimiento,
         d.estado,
+        d.estado_anterior,
+        d.fecha_invalidacion,
         d.fecha_ingreso,
         c.id_compra,
         c.correo_comprador,
@@ -39,12 +41,22 @@ const obtenerEntradasPorEvento = async (req, res) => {
       [id_evento]
     );
 
-    // Dinero total: se calcula sobre las compras (no sobre los detalles)
-    // para no multiplicar el total por la cantidad de personas.
-    const dinero = await pool.query(
+    // Totales de ingresos: se calculan por ENTRADA válida (detalle), no por
+    // compra, para poder excluir las entradas invalidadas. El ingreso neto de
+    // cada entrada es total_compra / cantidad (así se reparte el descuento
+    // entre las personas de la compra). Las entradas INVALIDADA no suman.
+    const resumen = await pool.query(
       `
-      SELECT COALESCE(SUM(c.total), 0) AS total_dinero
-      FROM compras_entradas c
+      SELECT
+        COUNT(*) FILTER (WHERE d.estado IS DISTINCT FROM 'INVALIDADA')          AS total_validas,
+        COUNT(*) FILTER (WHERE d.estado = 'INVALIDADA')                         AS total_invalidadas,
+        COALESCE(
+          SUM(c.total / NULLIF(c.cantidad, 0))
+            FILTER (WHERE d.estado IS DISTINCT FROM 'INVALIDADA'),
+          0
+        ) AS total_dinero
+      FROM compra_entrada_detalles d
+      INNER JOIN compras_entradas c ON c.id_compra = d.id_compra
       WHERE c.id_evento = $1
         AND c.estado = 'PAGADA'
       `,
@@ -56,10 +68,15 @@ const obtenerEntradasPorEvento = async (req, res) => {
       SELECT
         t.id_tier,
         t.nombre AS tier,
-        COALESCE(SUM(c.cantidad), 0) AS cantidad,
-        COALESCE(SUM(c.total), 0)    AS total
-      FROM compras_entradas c
-      INNER JOIN entrada_tiers t ON t.id_tier = c.id_tier
+        COUNT(*) FILTER (WHERE d.estado IS DISTINCT FROM 'INVALIDADA') AS cantidad,
+        COALESCE(
+          SUM(c.total / NULLIF(c.cantidad, 0))
+            FILTER (WHERE d.estado IS DISTINCT FROM 'INVALIDADA'),
+          0
+        ) AS total
+      FROM compra_entrada_detalles d
+      INNER JOIN compras_entradas c ON c.id_compra = d.id_compra
+      INNER JOIN entrada_tiers t    ON t.id_tier  = c.id_tier
       WHERE c.id_evento = $1
         AND c.estado = 'PAGADA'
       GROUP BY t.id_tier, t.nombre
@@ -68,11 +85,14 @@ const obtenerEntradasPorEvento = async (req, res) => {
       [id_evento]
     );
 
+    const totales = resumen.rows[0];
+
     res.json({
       entradas: entradas.rows,
       totales: {
-        total_entradas: entradas.rows.length,
-        total_dinero: Number(dinero.rows[0].total_dinero)
+        total_entradas: Number(totales.total_validas),
+        total_invalidadas: Number(totales.total_invalidadas),
+        total_dinero: Number(totales.total_dinero)
       },
       por_tier: porTier.rows.map((r) => ({
         id_tier: r.id_tier,
@@ -88,25 +108,60 @@ const obtenerEntradasPorEvento = async (req, res) => {
 };
 
 // Invalidar una entrada desde el panel. Una entrada INVALIDADA no podrá
-// usarse en el kiosko (validarQr ya contempla este estado).
+// usarse en el kiosko (validarQr ya contempla este estado) ni sumará a los
+// ingresos del evento.
+//
+// La invalidación se ancla a que la COMPRA esté PAGADA y a que la entrada no
+// esté ya invalidada, en lugar de exigir un estado concreto del detalle
+// ('CONFIRMADA'/'USADA'). Así también se pueden invalidar entradas antiguas
+// cuyo estado quedó NULL/vacío antes de existir el seguimiento por estado
+// (esa era la causa del error "no se puede invalidar en su estado actual").
+//
+// Se guarda historial: estado_anterior conserva el estado previo y
+// fecha_invalidacion registra cuándo se invalidó.
 const invalidarEntrada = async (req, res) => {
   const { id_detalle } = req.params;
 
   try {
     const result = await pool.query(
       `
-      UPDATE compra_entrada_detalles
-      SET estado = 'INVALIDADA'
-      WHERE id_detalle = $1
-        AND estado IN ('CONFIRMADA', 'USADA')
-      RETURNING *
+      UPDATE compra_entrada_detalles d
+      SET
+        estado             = 'INVALIDADA',
+        estado_anterior    = d.estado,
+        fecha_invalidacion = NOW()
+      FROM compras_entradas c
+      WHERE d.id_detalle = $1
+        AND c.id_compra  = d.id_compra
+        AND c.estado     = 'PAGADA'
+        AND d.estado IS DISTINCT FROM 'INVALIDADA'
+      RETURNING d.*
       `,
       [id_detalle]
     );
 
     if (result.rows.length === 0) {
+      // Distinguir "ya estaba invalidada" de "no existe / compra no pagada".
+      const actual = await pool.query(
+        `
+        SELECT d.estado, c.estado AS estado_compra
+        FROM compra_entrada_detalles d
+        INNER JOIN compras_entradas c ON c.id_compra = d.id_compra
+        WHERE d.id_detalle = $1
+        `,
+        [id_detalle]
+      );
+
+      if (actual.rows.length === 0) {
+        return res.status(404).json({ error: 'La entrada no existe' });
+      }
+
+      if (actual.rows[0].estado === 'INVALIDADA') {
+        return res.status(400).json({ error: 'La entrada ya está invalidada' });
+      }
+
       return res.status(400).json({
-        error: 'La entrada no existe o no se puede invalidar en su estado actual'
+        error: 'Solo se pueden invalidar entradas de compras pagadas'
       });
     }
 
@@ -117,7 +172,9 @@ const invalidarEntrada = async (req, res) => {
   }
 };
 
-// Revertir una invalidación (volver a dejar la entrada como CONFIRMADA).
+// Revertir una invalidación. Restaura el estado que la entrada tenía antes de
+// ser invalidada (por ejemplo 'USADA' si ya había ingresado); si no hay
+// historial, vuelve a 'CONFIRMADA'. Limpia la fecha de invalidación.
 const revalidarEntrada = async (req, res) => {
   const { id_detalle } = req.params;
 
@@ -125,7 +182,10 @@ const revalidarEntrada = async (req, res) => {
     const result = await pool.query(
       `
       UPDATE compra_entrada_detalles
-      SET estado = 'CONFIRMADA'
+      SET
+        estado             = COALESCE(NULLIF(estado_anterior, ''), 'CONFIRMADA'),
+        estado_anterior    = NULL,
+        fecha_invalidacion = NULL
       WHERE id_detalle = $1
         AND estado = 'INVALIDADA'
       RETURNING *
