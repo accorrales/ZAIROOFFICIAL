@@ -22,6 +22,7 @@ const codigosDescuentoRoutes = require('./routes/codigosDescuentoRoutes');
 const entradasConfirmadasRoutes = require('./routes/entradasConfirmadasRoutes');
 
 const { iniciarLocationNotificationCron } = require('./jobs/locationNotificationCron');
+const { ensureSchema } = require('./config/ensureSchema');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -88,7 +89,8 @@ app.get('/', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
+  await ensureSchema();
   iniciarLocationNotificationCron();
 });
