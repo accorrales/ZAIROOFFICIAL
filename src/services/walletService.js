@@ -97,11 +97,14 @@ const getWalletLogoUrl = () =>
   process.env.ZAIRO_LOGO_URL ||
   'https://www.zairoclub.com/assets/zairo-loader-logo.png';
 
+// Imagen principal (heroImage) del pase de Google Wallet. Configurable por
+// entorno; si no está definida, se arma a partir del frontend público.
+const getGoogleWalletHeroImageUrl = () =>
+  process.env.GOOGLE_WALLET_HERO_IMAGE_URL ||
+  `${getFrontendUrl()}/wallet/zairo-lost-trip-wallet.png`;
+
 // Color de fondo de marca para el pase de Google Wallet (formato #rrggbb)
 const WALLET_BACKGROUND_COLOR = '#07120b';
-
-const isHttpUrl = (value) =>
-  typeof value === 'string' && /^https?:\/\//i.test(value.trim());
 
 const buildWalletImage = (uri, description) => ({
   sourceUri: { uri },
@@ -130,6 +133,95 @@ const getGoogleClassId = (issuerId, entrada = {}) => {
   return eventoId
     ? `${issuerId}.${suffix}_evt_${eventoId}`
     : `${issuerId}.${suffix}`;
+};
+
+const GOOGLE_WALLET_SCOPE = 'https://www.googleapis.com/auth/wallet_object.issuer';
+const GOOGLE_WALLET_API_BASE = 'https://walletobjects.googleapis.com/walletobjects/v1';
+
+// Autenticación server-to-server contra la API de Google Wallet (distinta del
+// JWT "savetowallet" que recibe el botón: este token es para llamar a la REST API).
+const getGoogleWalletAccessToken = async (serviceAccountEmail, privateKey) => {
+  const now = Math.floor(Date.now() / 1000);
+  const assertion = jwt.sign(
+    {
+      iss: serviceAccountEmail,
+      scope: GOOGLE_WALLET_SCOPE,
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: now,
+      exp: now + 3600
+    },
+    privateKey,
+    { algorithm: 'RS256' }
+  );
+
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`No se pudo obtener el token de Google Wallet (${response.status})`);
+  }
+
+  const data = await response.json();
+  return data.access_token;
+};
+
+// Si la clase de Google Wallet ya existe, insertarla de nuevo dentro del JWT no
+// tiene efecto (Google ignora la definición y conserva la ya guardada). Por eso
+// aquí se consulta primero y, si existe, se actualiza con PATCH (heroImage,
+// logo, color); si no existe, se crea con POST.
+const ensureGoogleWalletClass = async (eventTicketClass, serviceAccountEmail, privateKey) => {
+  const accessToken = await getGoogleWalletAccessToken(serviceAccountEmail, privateKey);
+  const classUrl = `${GOOGLE_WALLET_API_BASE}/eventTicketClass/${encodeURIComponent(eventTicketClass.id)}`;
+
+  const getResponse = await fetch(classUrl, {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+
+  if (getResponse.status === 404) {
+    const insertResponse = await fetch(`${GOOGLE_WALLET_API_BASE}/eventTicketClass`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(eventTicketClass)
+    });
+
+    if (!insertResponse.ok) {
+      const body = await insertResponse.text();
+      throw new Error(`No se pudo crear la clase de Google Wallet: ${insertResponse.status} ${body}`);
+    }
+    return;
+  }
+
+  if (!getResponse.ok) {
+    const body = await getResponse.text();
+    throw new Error(`No se pudo consultar la clase de Google Wallet: ${getResponse.status} ${body}`);
+  }
+
+  const patchResponse = await fetch(classUrl, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      heroImage: eventTicketClass.heroImage,
+      logo: eventTicketClass.logo,
+      hexBackgroundColor: eventTicketClass.hexBackgroundColor
+    })
+  });
+
+  if (!patchResponse.ok) {
+    const body = await patchResponse.text();
+    throw new Error(`No se pudo actualizar la clase de Google Wallet: ${patchResponse.status} ${body}`);
+  }
 };
 
 const generarApplePass = async (entrada) => {
@@ -226,7 +318,7 @@ const generarApplePass = async (entrada) => {
   return pass.getAsBuffer();
 };
 
-const generarGoogleWalletUrl = (entrada) => {
+const generarGoogleWalletUrl = async (entrada) => {
   const issuerId = process.env.GOOGLE_WALLET_ISSUER_ID;
   const serviceAccountEmail = process.env.GOOGLE_WALLET_CLIENT_EMAIL;
   const privateKey = process.env.GOOGLE_WALLET_PRIVATE_KEY;
@@ -239,6 +331,7 @@ const generarGoogleWalletUrl = (entrada) => {
   const classId = getGoogleClassId(issuerId, entrada);
   const objectId = `${issuerId}.${safeUuid}`;
   const qrData = entrada.qr_data || getTicketUrl(entrada.uuid_entrada);
+  const normalizedPrivateKey = privateKey.replace(/\\n/g, '\n');
 
   const eventTicketClass = {
     id: classId,
@@ -246,6 +339,10 @@ const generarGoogleWalletUrl = (entrada) => {
     reviewStatus: 'UNDER_REVIEW',
     hexBackgroundColor: WALLET_BACKGROUND_COLOR,
     logo: buildWalletImage(getWalletLogoUrl(), 'ZAIRO'),
+    heroImage: buildWalletImage(
+      getGoogleWalletHeroImageUrl(),
+      entrada.evento || 'ZAIRO Experience'
+    ),
     eventName: {
       defaultValue: {
         language: 'es-CR',
@@ -271,12 +368,14 @@ const generarGoogleWalletUrl = (entrada) => {
     }
   };
 
-  // Banner del evento (a todo el ancho) solo si hay una imagen pública válida.
-  if (isHttpUrl(entrada.imagen_evento)) {
-    eventTicketClass.heroImage = buildWalletImage(
-      entrada.imagen_evento.trim(),
-      entrada.evento || 'ZAIRO Experience'
-    );
+  // Si la clase ya existe (evento creado previamente), se actualiza vía la API
+  // REST para que el heroImage/logo/color reflejen el valor actual; si falla
+  // (p. ej. sin conectividad puntual), no se interrumpe la generación del pase:
+  // el JWT igual se firma y el botón "Save to Google Wallet" sigue funcionando.
+  try {
+    await ensureGoogleWalletClass(eventTicketClass, serviceAccountEmail, normalizedPrivateKey);
+  } catch (error) {
+    console.error('ERROR SINCRONIZANDO CLASE DE GOOGLE WALLET:', error.message);
   }
 
   const payload = {
@@ -329,7 +428,7 @@ const generarGoogleWalletUrl = (entrada) => {
     }
   };
 
-  const token = jwt.sign(payload, privateKey.replace(/\\n/g, '\n'), { algorithm: 'RS256' });
+  const token = jwt.sign(payload, normalizedPrivateKey, { algorithm: 'RS256' });
   return `https://pay.google.com/gp/v/save/${token}`;
 };
 
