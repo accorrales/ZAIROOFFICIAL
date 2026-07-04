@@ -343,12 +343,14 @@ exports.confirmarCompra = async (req, res) => {
         estado: 'CONFIRMADA'
       };
 
+      const googleWalletUrl = await walletService.generarGoogleWalletUrl(entradaWallet);
+
       personasConQr.push({
         nombre_completo: persona.nombre_completo,
         qr_url: walletService.getQrUrl(uuidEntrada),
         ticket_url: walletService.getTicketUrl(uuidEntrada),
         apple_wallet_url: walletService.getAppleWalletUrl(uuidEntrada),
-        google_wallet_url: walletService.generarGoogleWalletUrl(entradaWallet)
+        google_wallet_url: googleWalletUrl
       });
     }
 
@@ -595,7 +597,7 @@ exports.obtenerGoogleWallet = async (req, res) => {
       return res.status(400).json({ message: 'La entrada todavía no está pagada' });
     }
 
-    const googleWalletUrl = walletService.generarGoogleWalletUrl(entrada);
+    const googleWalletUrl = await walletService.generarGoogleWalletUrl(entrada);
 
     if (!googleWalletUrl) {
       return res.status(501).json({
