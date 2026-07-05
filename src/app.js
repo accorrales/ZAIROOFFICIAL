@@ -24,6 +24,7 @@ const whatsappRoutes = require('./modules/whatsapp/whatsapp.routes');
 
 const { iniciarLocationNotificationCron } = require('./jobs/locationNotificationCron');
 const { ensureSchema } = require('./config/ensureSchema');
+const whatsappConfig = require('./modules/whatsapp/whatsapp.config');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -101,4 +102,7 @@ app.listen(PORT, async () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
   await ensureSchema();
   iniciarLocationNotificationCron();
+  // Informa si el módulo WhatsApp está activo o desactivado por variables
+  // faltantes. Nunca tumba el arranque; solo registra el estado.
+  whatsappConfig.registrarEstado();
 });

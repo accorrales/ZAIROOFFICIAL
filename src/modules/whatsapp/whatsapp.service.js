@@ -1,4 +1,5 @@
 const { log, enmascarar } = require('./whatsapp.utils');
+const config = require('./whatsapp.config');
 
 // ============================================================
 //  Cliente de la WhatsApp Cloud API (Meta / Graph API).
@@ -12,7 +13,8 @@ const GRAPH_BASE = `https://graph.facebook.com/${API_VERSION}`;
 const getToken = () => process.env.WHATSAPP_ACCESS_TOKEN;
 const getPhoneNumberId = () => process.env.WHATSAPP_PHONE_NUMBER_ID;
 
-const estaConfigurado = () => Boolean(getToken() && getPhoneNumberId());
+// El módulo solo está "configurado" si están TODAS las variables requeridas.
+const estaConfigurado = () => config.moduloActivo();
 
 /**
  * Envía un mensaje de texto a un número por la Cloud API.

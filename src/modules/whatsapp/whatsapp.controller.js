@@ -4,6 +4,7 @@ const repository = require('./whatsapp.repository');
 const webhook = require('./whatsapp.webhook');
 const templates = require('./whatsapp.templates');
 const confirmarCompraService = require('../../services/confirmarCompraService');
+const config = require('./whatsapp.config');
 const { normalizarTelefono } = require('./whatsapp.utils');
 
 // ============================================================
@@ -242,6 +243,10 @@ exports.rechazarComprobante = async (req, res) => {
 exports.solicitarNuevoComprobante = async (req, res) => {
   const { id } = req.params;
   try {
+    if (!config.moduloActivo()) {
+      return res.status(503).json({ message: 'El módulo de WhatsApp está desactivado (faltan variables de entorno).' });
+    }
+
     const receiptResult = await pool.query(
       `SELECT r.conversation_id, conv.phone_number
        FROM payment_receipts r
@@ -271,6 +276,9 @@ exports.enviarMensajeManual = async (req, res) => {
   const { id } = req.params; // conversation id
   const { texto } = req.body || {};
   try {
+    if (!config.moduloActivo()) {
+      return res.status(503).json({ message: 'El módulo de WhatsApp está desactivado (faltan variables de entorno).' });
+    }
     if (!texto || !texto.trim()) {
       return res.status(400).json({ message: 'El mensaje no puede estar vacío' });
     }

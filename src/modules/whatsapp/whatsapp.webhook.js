@@ -6,6 +6,7 @@ const validationService = require('./whatsapp.validationService');
 const messageParser = require('./whatsapp.messageParser');
 const assistant = require('./whatsapp.assistant');
 const templates = require('./whatsapp.templates');
+const config = require('./whatsapp.config');
 const { verificarFirmaMeta, log, enmascarar } = require('./whatsapp.utils');
 
 // ============================================================
@@ -20,6 +21,11 @@ const { verificarFirmaMeta, log, enmascarar } = require('./whatsapp.utils');
 
 // ---------- GET: verificación del webhook ----------
 const verificar = (req, res) => {
+  if (!config.moduloActivo()) {
+    config.registrarEstado();
+    return res.sendStatus(503);
+  }
+
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
@@ -35,6 +41,12 @@ const verificar = (req, res) => {
 
 // ---------- POST: recepción de eventos ----------
 const recibir = (req, res) => {
+  // 0) Si el módulo está desactivado (faltan variables), no procesar nada.
+  if (!config.moduloActivo()) {
+    config.registrarEstado();
+    return res.sendStatus(503);
+  }
+
   // 1) Validar firma de Meta (si hay app secret configurado).
   const appSecret = process.env.WHATSAPP_APP_SECRET;
   if (appSecret) {
