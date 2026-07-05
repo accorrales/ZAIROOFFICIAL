@@ -4,6 +4,7 @@ const QRCode = require('qrcode');
 
 const emailService = require('../services/emailService');
 const walletService = require('../services/walletService');
+const confirmarCompraService = require('../services/confirmarCompraService');
 const { evaluarCodigo } = require('./codigosDescuentoController');
 
 const uuidRegex =
@@ -273,112 +274,26 @@ exports.confirmarCompra = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const compraResult = await pool.query(
-      `
-      SELECT
-        c.*,
-        e.nombre AS evento,
-        e.fecha AS fecha_evento,
-        e.ubicacion AS ubicacion_evento,
-        e.imagen AS imagen_evento,
-        t.nombre AS entrada,
-        t.precio AS precio_entrada
-      FROM compras_entradas c
-      INNER JOIN eventos e ON e.id_evento = c.id_evento
-      INNER JOIN entrada_tiers t ON t.id_tier = c.id_tier
-      WHERE c.id_compra = $1
-      `,
-      [id]
-    );
-
-    if (compraResult.rows.length === 0) {
-      return res.status(404).json({ message: 'Compra no encontrada' });
-    }
-
-    const compra = compraResult.rows[0];
-
-    if (compra.estado === 'PAGADA') {
-      return res.status(400).json({ message: 'Esta compra ya fue confirmada' });
-    }
-
-    const personasResult = await pool.query(
-      `
-      SELECT *
-      FROM compra_entrada_detalles
-      WHERE id_compra = $1
-      ORDER BY id_detalle
-      `,
-      [id]
-    );
-
-    const personasConQr = [];
-
-    for (const persona of personasResult.rows) {
-      const uuidEntrada = persona.uuid_entrada || uuidv4();
-      const qrData = walletService.getTicketUrl(uuidEntrada);
-
-      await pool.query(
-        `
-        UPDATE compra_entrada_detalles
-        SET
-          uuid_entrada = $1,
-          qr_data = $2,
-          estado = 'CONFIRMADA'
-        WHERE id_detalle = $3
-        `,
-        [uuidEntrada, qrData, persona.id_detalle]
-      );
-
-      const entradaWallet = {
-        ...persona,
-        uuid_entrada: uuidEntrada,
-        qr_data: qrData,
-        id_evento: compra.id_evento,
-        evento: compra.evento,
-        fecha_evento: compra.fecha_evento,
-        ubicacion_evento: compra.ubicacion_evento,
-        imagen_evento: compra.imagen_evento,
-        entrada: compra.entrada,
-        precio: compra.precio_entrada,
-        estado: 'CONFIRMADA'
-      };
-
-      const googleWalletUrl = await walletService.generarGoogleWalletUrl(entradaWallet);
-
-      personasConQr.push({
-        nombre_completo: persona.nombre_completo,
-        qr_url: walletService.getQrUrl(uuidEntrada),
-        ticket_url: walletService.getTicketUrl(uuidEntrada),
-        apple_wallet_url: walletService.getAppleWalletUrl(uuidEntrada),
-        google_wallet_url: googleWalletUrl
-      });
-    }
-
-    console.log('LLAMANDO EMAIL SERVICE PARA COMPRA:', compra.id_compra);
-    console.log('PERSONAS CON QR:', personasConQr);
-
-    await emailService.enviarEntradas({
-      correo: compra.correo_comprador,
-      evento: compra.evento,
-      entrada: compra.entrada,
-      personas: personasConQr
+    // Fuente única de verdad: genera QR, envía el correo con las entradas
+    // y marca la compra como PAGADA. Reutilizado también por el módulo de
+    // WhatsApp para no duplicar lógica.
+    const resultado = await confirmarCompraService.confirmarCompra(id, {
+      source: 'PANEL',
+      createdBy: req.user?.correo || req.user?.usuario || String(req.user?.id || 'admin')
     });
-
-    const updateCompra = await pool.query(
-      `
-      UPDATE compras_entradas
-      SET estado = 'PAGADA'
-      WHERE id_compra = $1
-      RETURNING *
-      `,
-      [id]
-    );
 
     return res.json({
       message: 'Compra confirmada correctamente',
-      compra: updateCompra.rows[0]
+      compra: resultado.compra
     });
   } catch (error) {
+    if (error.statusCode === 404) {
+      return res.status(404).json({ message: error.message });
+    }
+    if (error.statusCode === 409) {
+      // Se mantiene 400 para no romper el manejo actual del frontend.
+      return res.status(400).json({ message: error.message });
+    }
     console.error('ERROR CONFIRMANDO COMPRA:', error);
     return res.status(500).json({ message: error.message || 'Error confirmando compra' });
   }

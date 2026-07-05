@@ -20,6 +20,7 @@ const entradaTiersRoutes = require('./routes/entradaTiersRoutes');
 const comprasEntradasRoutes = require('./routes/comprasEntradasRoutes');
 const codigosDescuentoRoutes = require('./routes/codigosDescuentoRoutes');
 const entradasConfirmadasRoutes = require('./routes/entradasConfirmadasRoutes');
+const whatsappRoutes = require('./modules/whatsapp/whatsapp.routes');
 
 const { iniciarLocationNotificationCron } = require('./jobs/locationNotificationCron');
 const { ensureSchema } = require('./config/ensureSchema');
@@ -42,7 +43,13 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-app.use(express.json());
+// Guarda el cuerpo crudo del request para poder validar la firma
+// X-Hub-Signature-256 del webhook de WhatsApp (Meta firma el body sin parsear).
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/departamentos', departamentosRoutes);
@@ -59,6 +66,7 @@ app.use('/api/entrada-tiers', entradaTiersRoutes);
 app.use('/api/compras-entradas', comprasEntradasRoutes);
 app.use('/api/codigos-descuento', codigosDescuentoRoutes);
 app.use('/api/dashboard-entradas', entradasConfirmadasRoutes);
+app.use('/api/whatsapp', whatsappRoutes);
 
 app.get('/api/prueba-dashboard', (req, res) => {
   res.json({ mensaje: 'Ruta directa funcionando' });
