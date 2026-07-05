@@ -5,6 +5,45 @@ const TIPOS_VALIDOS = ['PORCENTAJE', 'MONTO'];
 const normalizarCodigo = (codigo) =>
   (codigo || '').toString().trim().toUpperCase();
 
+// Los usos de códigos se calculan desde las entradas realmente vendidas:
+// compra PAGADA + entrada no invalidada. Así no cuentan compras rechazadas,
+// pendientes ni entradas invalidadas.
+const USOS_VALIDOS_SQL = `
+  COALESCE((
+    SELECT COUNT(*)
+    FROM compras_entradas ce
+    INNER JOIN compra_entrada_detalles d ON d.id_compra = ce.id_compra
+    WHERE ce.id_codigo = c.id_codigo
+      AND ce.estado = 'PAGADA'
+      AND d.fecha_invalidacion IS NULL
+  ), 0)::int
+`;
+
+const TOTAL_VENDIDO_SQL = `
+  COALESCE((
+    SELECT SUM(ce.total / NULLIF(ce.cantidad, 0))
+    FROM compras_entradas ce
+    INNER JOIN compra_entrada_detalles d ON d.id_compra = ce.id_compra
+    WHERE ce.id_codigo = c.id_codigo
+      AND ce.estado = 'PAGADA'
+      AND d.fecha_invalidacion IS NULL
+  ), 0)
+`;
+
+const mapearCodigoConMetricas = (row) => {
+  const { usos_actuales_reales, ...codigo } = row;
+  const entradasVendidas = Number(usos_actuales_reales || 0);
+
+  return {
+    ...codigo,
+    // Mantiene el mismo nombre que consume el frontend, pero ahora representa
+    // entradas válidas vendidas con el código, no compras pendientes/rechazadas.
+    usos_actuales: entradasVendidas,
+    entradas_vendidas: entradasVendidas,
+    total_vendido: Number(row.total_vendido || 0)
+  };
+};
+
 /**
  * Valida un código contra un evento y subtotal dados.
  * Devuelve { ok, error, codigo, descuento, total } sin tocar la base.
@@ -18,7 +57,10 @@ const evaluarCodigo = async (codigoTexto, idEvento, subtotal) => {
   }
 
   const result = await pool.query(
-    `SELECT * FROM codigos_descuento WHERE UPPER(codigo) = $1 LIMIT 1`,
+    `SELECT c.*, ${USOS_VALIDOS_SQL} AS usos_actuales_reales
+     FROM codigos_descuento c
+     WHERE UPPER(c.codigo) = $1
+     LIMIT 1`,
     [codigo]
   );
 
@@ -27,6 +69,9 @@ const evaluarCodigo = async (codigoTexto, idEvento, subtotal) => {
   if (!promo) {
     return { ok: false, error: 'El código no existe' };
   }
+
+  promo.usos_actuales = Number(promo.usos_actuales_reales || 0);
+  delete promo.usos_actuales_reales;
 
   if (!promo.estado) {
     return { ok: false, error: 'El código está desactivado' };
@@ -80,13 +125,17 @@ const evaluarCodigo = async (codigoTexto, idEvento, subtotal) => {
 const listarCodigos = async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT c.*, e.nombre AS evento
+      `SELECT
+         c.*,
+         e.nombre AS evento,
+         ${USOS_VALIDOS_SQL} AS usos_actuales_reales,
+         ${TOTAL_VENDIDO_SQL} AS total_vendido
        FROM codigos_descuento c
        LEFT JOIN eventos e ON e.id_evento = c.id_evento
        ORDER BY c.fecha_creacion DESC`
     );
 
-    res.json(result.rows);
+    res.json(result.rows.map(mapearCodigoConMetricas));
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al obtener códigos de descuento' });
@@ -98,7 +147,11 @@ const obtenerCodigoPorId = async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT c.*, e.nombre AS evento
+      `SELECT
+         c.*,
+         e.nombre AS evento,
+         ${USOS_VALIDOS_SQL} AS usos_actuales_reales,
+         ${TOTAL_VENDIDO_SQL} AS total_vendido
        FROM codigos_descuento c
        LEFT JOIN eventos e ON e.id_evento = c.id_evento
        WHERE c.id_codigo = $1
@@ -110,7 +163,7 @@ const obtenerCodigoPorId = async (req, res) => {
       return res.status(404).json({ error: 'Código no encontrado' });
     }
 
-    res.json(result.rows[0]);
+    res.json(mapearCodigoConMetricas(result.rows[0]));
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al obtener el código' });
