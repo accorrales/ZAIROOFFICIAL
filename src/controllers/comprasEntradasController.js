@@ -169,16 +169,8 @@ exports.crearCompra = async (req, res) => {
 
     const compra = compraResult.rows[0];
 
-    // Registrar el uso del código una vez creada la compra.
-    if (idCodigo) {
-      await pool.query(
-        `UPDATE codigos_descuento
-         SET usos_actuales = usos_actuales + 1
-         WHERE id_codigo = $1`,
-        [idCodigo]
-      );
-    }
-
+    // No se suma el uso del código aquí porque la compra todavía está pendiente.
+    // Las métricas de códigos se calculan desde entradas pagadas y no invalidadas.
     for (const persona of personas) {
       await pool.query(
         `
