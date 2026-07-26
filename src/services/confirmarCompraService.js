@@ -100,6 +100,7 @@ const confirmarCompra = async (idCompra, opts = {}) => {
   for (const persona of personasResult.rows) {
     const uuidEntrada = persona.uuid_entrada || uuidv4();
     const qrData = walletService.getTicketUrl(uuidEntrada);
+    const bebidaCortesia = persona.bebida_cortesia || compra.bebida_cortesia || null;
 
     await pool.query(
       `
@@ -107,16 +108,18 @@ const confirmarCompra = async (idCompra, opts = {}) => {
       SET
         uuid_entrada = $1,
         qr_data = $2,
-        estado = 'CONFIRMADA'
-      WHERE id_detalle = $3
+        estado = 'CONFIRMADA',
+        bebida_cortesia = $3
+      WHERE id_detalle = $4
       `,
-      [uuidEntrada, qrData, persona.id_detalle]
+      [uuidEntrada, qrData, bebidaCortesia, persona.id_detalle]
     );
 
     const entradaWallet = {
       ...persona,
       uuid_entrada: uuidEntrada,
       qr_data: qrData,
+      bebida_cortesia: bebidaCortesia,
       id_evento: compra.id_evento,
       evento: compra.evento,
       fecha_evento: compra.fecha_evento,
@@ -131,6 +134,7 @@ const confirmarCompra = async (idCompra, opts = {}) => {
 
     personasConQr.push({
       nombre_completo: persona.nombre_completo,
+      bebida_cortesia: bebidaCortesia,
       qr_url: walletService.getQrUrl(uuidEntrada),
       ticket_url: walletService.getTicketUrl(uuidEntrada),
       apple_wallet_url: walletService.getAppleWalletUrl(uuidEntrada),
