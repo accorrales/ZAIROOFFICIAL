@@ -2,8 +2,14 @@ const express = require('express');
 const router = express.Router();
 
 const comprasEntradasController = require('../controllers/comprasEntradasController');
+const cortesiaActivacionController = require('../controllers/cortesiaActivacionController');
 
-router.post('/', comprasEntradasController.crearCompra);
+router.post('/cortesia/validar', cortesiaActivacionController.validarCodigo);
+router.post(
+  '/',
+  cortesiaActivacionController.protegerCortesia,
+  comprasEntradasController.crearCompra
+);
 router.get('/pendientes', comprasEntradasController.listarPendientes);
 router.get('/qr/:uuid', comprasEntradasController.obtenerQrEntrada);
 router.get('/wallet/apple/:uuid', comprasEntradasController.obtenerAppleWallet);
