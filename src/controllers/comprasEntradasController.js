@@ -1,5 +1,4 @@
 const pool = require('../config/database');
-const { v4: uuidv4 } = require('uuid');
 const QRCode = require('qrcode');
 
 const emailService = require('../services/emailService');
@@ -9,6 +8,21 @@ const { evaluarCodigo } = require('./codigosDescuentoController');
 
 const uuidRegex =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const BEBIDAS_CORTESIA = new Set(['PUNCH_CLUB', 'SOLEO']);
+
+const normalizarBebidaCortesia = (valor) => {
+  if (valor === undefined || valor === null || String(valor).trim() === '') {
+    return null;
+  }
+
+  const normalizada = String(valor)
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, '_');
+
+  return BEBIDAS_CORTESIA.has(normalizada) ? normalizada : null;
+};
 
 const obtenerEntradaPorUuid = async (uuid) => {
   if (!uuid || !uuidRegex.test(uuid)) return null;
@@ -24,6 +38,9 @@ const obtenerEntradaPorUuid = async (uuid) => {
       d.uuid_entrada,
       d.qr_data,
       d.fecha_ingreso,
+      d.bebida_cortesia,
+      d.cortesia_tiquete_entregado,
+      d.cortesia_tiquete_entregado_en,
       c.correo_comprador,
       c.telefono_comprador,
       c.total,
@@ -55,7 +72,8 @@ exports.crearCompra = async (req, res) => {
       correo_comprador,
       telefono_comprador,
       personas,
-      codigo_descuento
+      codigo_descuento,
+      bebida_cortesia
     } = req.body;
 
     if (!id_evento || !id_tier) {
@@ -72,6 +90,18 @@ exports.crearCompra = async (req, res) => {
 
     if (!personas || personas.length === 0) {
       return res.status(400).json({ message: 'Debe agregar al menos una persona' });
+    }
+
+    const bebidaCortesia = normalizarBebidaCortesia(bebida_cortesia);
+    const seEnvioBebida =
+      bebida_cortesia !== undefined &&
+      bebida_cortesia !== null &&
+      String(bebida_cortesia).trim() !== '';
+
+    if (seEnvioBebida && !bebidaCortesia) {
+      return res.status(400).json({
+        message: 'La bebida de cortesía debe ser PUNCH_CLUB o SOLEO'
+      });
     }
 
     const eventoResult = await pool.query(
@@ -150,8 +180,19 @@ exports.crearCompra = async (req, res) => {
     const compraResult = await pool.query(
       `
       INSERT INTO compras_entradas
-      (id_evento, id_tier, correo_comprador, telefono_comprador, cantidad, subtotal, descuento, total, id_codigo)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      (
+        id_evento,
+        id_tier,
+        correo_comprador,
+        telefono_comprador,
+        cantidad,
+        subtotal,
+        descuento,
+        total,
+        id_codigo,
+        bebida_cortesia
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
       RETURNING *
       `,
       [
@@ -163,7 +204,8 @@ exports.crearCompra = async (req, res) => {
         subtotal,
         descuento,
         total,
-        idCodigo
+        idCodigo,
+        bebidaCortesia
       ]
     );
 
@@ -175,10 +217,15 @@ exports.crearCompra = async (req, res) => {
       await pool.query(
         `
         INSERT INTO compra_entrada_detalles
-        (id_compra, nombre_completo, fecha_nacimiento)
-        VALUES ($1,$2,$3)
+        (id_compra, nombre_completo, fecha_nacimiento, bebida_cortesia)
+        VALUES ($1,$2,$3,$4)
         `,
-        [compra.id_compra, persona.nombre_completo.trim(), persona.fecha_nacimiento]
+        [
+          compra.id_compra,
+          persona.nombre_completo.trim(),
+          persona.fecha_nacimiento,
+          bebidaCortesia
+        ]
       );
     }
 
@@ -204,6 +251,7 @@ exports.listarPendientes = async (req, res) => {
         c.telefono_comprador,
         c.cantidad,
         c.total,
+        c.bebida_cortesia,
         c.estado,
         c.fecha_creacion
       FROM compras_entradas c
@@ -246,7 +294,10 @@ exports.obtenerCompraPorId = async (req, res) => {
         fecha_nacimiento,
         estado,
         uuid_entrada,
-        qr_data
+        qr_data,
+        bebida_cortesia,
+        cortesia_tiquete_entregado,
+        cortesia_tiquete_entregado_en
       FROM compra_entrada_detalles
       WHERE id_compra = $1
       ORDER BY id_detalle
@@ -378,7 +429,15 @@ exports.validarQr = async (req, res) => {
       UPDATE compra_entrada_detalles d
       SET
         estado = 'USADA',
-        fecha_ingreso = NOW()
+        fecha_ingreso = NOW(),
+        cortesia_tiquete_entregado = CASE
+          WHEN d.bebida_cortesia IS NOT NULL THEN TRUE
+          ELSE FALSE
+        END,
+        cortesia_tiquete_entregado_en = CASE
+          WHEN d.bebida_cortesia IS NOT NULL THEN NOW()
+          ELSE NULL
+        END
       FROM compras_entradas c
       INNER JOIN eventos e ON e.id_evento = c.id_evento
       INNER JOIN entrada_tiers t ON t.id_tier = c.id_tier
@@ -391,6 +450,9 @@ exports.validarQr = async (req, res) => {
         d.estado,
         d.uuid_entrada,
         d.fecha_ingreso,
+        d.bebida_cortesia,
+        d.cortesia_tiquete_entregado,
+        d.cortesia_tiquete_entregado_en,
         c.id_compra,
         e.nombre AS evento,
         e.fecha AS fecha_evento,
@@ -400,10 +462,21 @@ exports.validarQr = async (req, res) => {
     );
 
     if (updateResult.rows.length > 0) {
+      const entrada = updateResult.rows[0];
+
       return res.json({
         valido: true,
-        message: 'Entrada válida. Acceso permitido.',
-        entrada: updateResult.rows[0]
+        message: entrada.bebida_cortesia
+          ? 'Entrada válida. Acceso permitido y tiquete de cortesía registrado.'
+          : 'Entrada válida. Acceso permitido.',
+        entrada,
+        cortesia: entrada.bebida_cortesia
+          ? {
+              bebida: entrada.bebida_cortesia,
+              entregar_tiquete: true,
+              tiquete_entregado: entrada.cortesia_tiquete_entregado
+            }
+          : null
       });
     }
 
@@ -428,7 +501,15 @@ exports.validarQr = async (req, res) => {
       return res.status(400).json({
         valido: false,
         message: 'Esta entrada ya fue utilizada',
-        entrada
+        entrada,
+        cortesia: entrada.bebida_cortesia
+          ? {
+              bebida: entrada.bebida_cortesia,
+              entregar_tiquete: false,
+              tiquete_entregado: entrada.cortesia_tiquete_entregado,
+              tiquete_entregado_en: entrada.cortesia_tiquete_entregado_en
+            }
+          : null
       });
     }
 

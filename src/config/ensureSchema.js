@@ -45,6 +45,9 @@ const ensureSchema = async () => {
 
     console.log('ensureSchema: esquema de entradas verificado');
 
+    // Promoción de cortesías: selección de bebida por compra y por QR.
+    await ejecutarSqlIdempotente('bebidas_cortesia.sql');
+
     // Módulo WhatsApp: conversaciones, mensajes, comprobantes e historial.
     await ejecutarSqlIdempotente('whatsapp_module.sql');
   } catch (error) {
