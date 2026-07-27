@@ -4,6 +4,11 @@ const compression = require('compression');
 require('dotenv').config();
 
 const pool = require('./config/database');
+const {
+  verificarToken,
+  requiereAdmin,
+  requiereRoles
+} = require('./middlewares/authMiddleware');
 
 const departamentosRoutes = require('./routes/departamentosRoutes');
 const empleadosRoutes = require('./routes/empleadosRoutes');
@@ -52,26 +57,57 @@ app.use(express.json({
   }
 }));
 
+// Público: autenticación y flujos que combinan endpoints públicos/privados.
+// Los módulos mixtos protegen sus operaciones administrativas dentro del router.
 app.use('/api/auth', authRoutes);
-app.use('/api/departamentos', departamentosRoutes);
-app.use('/api/empleados', empleadosRoutes);
-app.use('/api/conceptos', conceptosRoutes);
-app.use('/api/planillas', planillasRoutes);
-app.use('/api/novedades', novedadesRoutes);
-app.use('/api/auditoria', auditoriaRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/eventos', eventosRoutes);
-app.use('/api/entradas', entradasRoutes);
 app.use('/api/entrada-tiers', entradaTiersRoutes);
 app.use('/api/compras-entradas', comprasEntradasRoutes);
 app.use('/api/codigos-descuento', codigosDescuentoRoutes);
-app.use('/api/dashboard-entradas', entradasConfirmadasRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 
-app.get('/api/prueba-dashboard', (req, res) => {
-  res.json({ mensaje: 'Ruta directa funcionando' });
-});
+// Privado: cualquier endpoint nuevo dentro de estos módulos hereda la
+// autenticación y autorización declarada aquí automáticamente.
+app.use(
+  '/api/departamentos',
+  verificarToken,
+  requiereRoles('admin', 'rrhh'),
+  departamentosRoutes
+);
+app.use(
+  '/api/empleados',
+  verificarToken,
+  requiereRoles('admin', 'rrhh'),
+  empleadosRoutes
+);
+app.use(
+  '/api/conceptos',
+  verificarToken,
+  requiereRoles('admin', 'rrhh'),
+  conceptosRoutes
+);
+app.use(
+  '/api/planillas',
+  verificarToken,
+  requiereRoles('admin', 'rrhh', 'contabilidad'),
+  planillasRoutes
+);
+app.use(
+  '/api/novedades',
+  verificarToken,
+  requiereRoles('admin', 'rrhh'),
+  novedadesRoutes
+);
+app.use('/api/auditoria', verificarToken, requiereAdmin, auditoriaRoutes);
+app.use('/api/dashboard', verificarToken, dashboardRoutes);
+app.use('/api/usuarios', verificarToken, requiereAdmin, usuariosRoutes);
+app.use('/api/entradas', verificarToken, requiereAdmin, entradasRoutes);
+app.use(
+  '/api/dashboard-entradas',
+  verificarToken,
+  requiereAdmin,
+  entradasConfirmadasRoutes
+);
 
 app.get('/api/health', (req, res) => {
   res.json({
@@ -88,7 +124,6 @@ app.get('/', async (req, res) => {
       mensaje: 'Backend funcionando correctamente',
       hora_servidor: result.rows[0]
     });
-
   } catch (error) {
     console.error(error);
 
