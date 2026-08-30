@@ -1,6 +1,6 @@
 const pool = require('../config/database');
 
-// Obtener eventos activos
+// Obtener eventos activos (compatibilidad con consumidores existentes).
 const obtenerEventos = async (req, res) => {
   try {
     const result = await pool.query(
@@ -14,6 +14,50 @@ const obtenerEventos = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al obtener eventos' });
+  }
+};
+
+// Home público: incluye eventos con venta activa y eventos publicados como teaser.
+// Los teasers NO exponen descripción, ubicación, precio ni otros datos internos.
+const obtenerEventosPublicados = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+         id_evento,
+         nombre,
+         descripcion,
+         fecha,
+         ubicacion,
+         precio,
+         imagen,
+         estado,
+         mostrar_en_home
+       FROM eventos
+       WHERE estado = true
+          OR mostrar_en_home = true
+       ORDER BY fecha`
+    );
+
+    const eventosPublicos = result.rows.map((evento) => {
+      if (evento.estado) {
+        return evento;
+      }
+
+      return {
+        id_evento: evento.id_evento,
+        nombre: evento.nombre,
+        fecha: evento.fecha,
+        imagen: evento.imagen,
+        estado: false,
+        mostrar_en_home: true,
+        modo: 'PROXIMAMENTE'
+      };
+    });
+
+    res.json(eventosPublicos);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener eventos publicados' });
   }
 };
 
@@ -35,15 +79,33 @@ const obtenerTodosEventos = async (req, res) => {
 
 // Crear evento
 const crearEvento = async (req, res) => {
-  const { nombre, descripcion, fecha, ubicacion, precio, imagen } = req.body;
+  const {
+    nombre,
+    descripcion,
+    fecha,
+    ubicacion,
+    precio,
+    imagen,
+    estado = true,
+    mostrar_en_home = false
+  } = req.body;
 
   try {
     const result = await pool.query(
       `INSERT INTO eventos
-       (nombre, descripcion, fecha, ubicacion, precio, imagen)
-       VALUES ($1,$2,$3,$4,$5,$6)
+       (nombre, descripcion, fecha, ubicacion, precio, imagen, estado, mostrar_en_home)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
        RETURNING *`,
-      [nombre, descripcion, fecha, ubicacion, precio, imagen]
+      [
+        nombre,
+        descripcion,
+        fecha,
+        ubicacion,
+        precio,
+        imagen,
+        estado !== false,
+        mostrar_en_home === true
+      ]
     );
 
     res.status(201).json(result.rows[0]);
@@ -56,7 +118,16 @@ const crearEvento = async (req, res) => {
 // Actualizar evento
 const actualizarEvento = async (req, res) => {
   const { id } = req.params;
-  const { nombre, descripcion, fecha, ubicacion, precio, imagen, estado } = req.body;
+  const {
+    nombre,
+    descripcion,
+    fecha,
+    ubicacion,
+    precio,
+    imagen,
+    estado,
+    mostrar_en_home = false
+  } = req.body;
 
   try {
     const result = await pool.query(
@@ -67,10 +138,21 @@ const actualizarEvento = async (req, res) => {
            ubicacion = $4,
            precio = $5,
            imagen = $6,
-           estado = $7
-       WHERE id_evento = $8
+           estado = $7,
+           mostrar_en_home = $8
+       WHERE id_evento = $9
        RETURNING *`,
-      [nombre, descripcion, fecha, ubicacion, precio, imagen, estado, id]
+      [
+        nombre,
+        descripcion,
+        fecha,
+        ubicacion,
+        precio,
+        imagen,
+        estado !== false,
+        mostrar_en_home === true,
+        id
+      ]
     );
 
     if (result.rows.length === 0) {
@@ -198,10 +280,9 @@ const eliminarEvento = async (req, res) => {
   }
 };
 
-// Endpoint público: nunca debe filtrar la ubicación secreta antes de tiempo.
-// Solo se exponen esos campos si el admin marcó la ubicación como visible
-// públicamente (ubicacion_visible_publicamente); de lo contrario se ocultan
-// por completo, incluso si ya se envió por correo a los compradores.
+// Endpoint público.
+// Un evento inactivo puede verse en el Home como teaser, pero su página de
+// detalle permanece cerrada hasta que el admin habilite las ventas.
 const obtenerEventoPorId = async (req, res) => {
   const { id } = req.params;
 
@@ -220,6 +301,10 @@ const obtenerEventoPorId = async (req, res) => {
 
     const evento = { ...result.rows[0] };
 
+    if (!evento.estado) {
+      return res.status(404).json({ error: 'Evento no disponible' });
+    }
+
     if (!evento.ubicacion_visible_publicamente) {
       delete evento.ubicacion_secreta_nombre;
       delete evento.ubicacion_secreta_direccion;
@@ -237,6 +322,7 @@ const obtenerEventoPorId = async (req, res) => {
 
 module.exports = {
   obtenerEventos,
+  obtenerEventosPublicados,
   obtenerTodosEventos,
   crearEvento,
   actualizarEvento,
