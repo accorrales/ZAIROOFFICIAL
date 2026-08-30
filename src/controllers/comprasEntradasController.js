@@ -114,6 +114,13 @@ exports.crearCompra = async (req, res) => {
     }
 
     const evento = eventoResult.rows[0];
+
+    if (evento.estado !== true) {
+      return res.status(403).json({
+        message: 'Las entradas para este evento todavía no están disponibles'
+      });
+    }
+
     const fechaEvento = new Date(evento.fecha);
 
     for (const persona of personas) {
