@@ -1,25 +1,8 @@
 const pool = require('../config/database');
 
-// Obtener eventos activos (compatibilidad con consumidores existentes).
-const obtenerEventos = async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT *
-       FROM eventos
-       WHERE estado = true
-       ORDER BY fecha`
-    );
-
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Error al obtener eventos' });
-  }
-};
-
 // Home público: incluye eventos con venta activa y eventos publicados como teaser.
-// Los teasers NO exponen descripción, ubicación, precio ni otros datos internos.
-const obtenerEventosPublicados = async (req, res) => {
+// Los teasers no exponen descripción, ubicación ni precio.
+const obtenerEventos = async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT
@@ -57,7 +40,7 @@ const obtenerEventosPublicados = async (req, res) => {
     res.json(eventosPublicos);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Error al obtener eventos publicados' });
+    res.status(500).json({ error: 'Error al obtener eventos' });
   }
 };
 
@@ -221,10 +204,7 @@ const reactivarEvento = async (req, res) => {
 };
 
 // Eliminar evento por completo.
-// Política segura: si el evento ya tiene compras asociadas NO se borra
-// (se devuelve 409 para que el admin lo desactive/archive en su lugar).
-// Si no tiene compras, se eliminan sus tiers y el evento dentro de una
-// transacción, respetando las llaves foráneas.
+// Si el evento ya tiene compras asociadas no se borra.
 const eliminarEvento = async (req, res) => {
   const { id } = req.params;
 
@@ -254,15 +234,13 @@ const eliminarEvento = async (req, res) => {
 
     await client.query('BEGIN');
 
-    // Quitar la referencia de códigos de descuento que apunten al evento.
-    // La tabla puede no existir si no se aplicó esa migración, por eso es tolerante.
     try {
       await client.query(
         `UPDATE codigos_descuento SET id_evento = NULL WHERE id_evento = $1`,
         [id]
       );
     } catch (e) {
-      // codigos_descuento todavía no existe: se ignora.
+      // La tabla puede no existir todavía.
     }
 
     await client.query(`DELETE FROM entrada_tiers WHERE id_evento = $1`, [id]);
@@ -280,9 +258,8 @@ const eliminarEvento = async (req, res) => {
   }
 };
 
-// Endpoint público.
-// Un evento inactivo puede verse en el Home como teaser, pero su página de
-// detalle permanece cerrada hasta que el admin habilite las ventas.
+// La página de detalle solo abre cuando el evento está activo.
+// Un evento inactivo puede aparecer en el Home como teaser, sin permitir acceso.
 const obtenerEventoPorId = async (req, res) => {
   const { id } = req.params;
 
@@ -322,7 +299,6 @@ const obtenerEventoPorId = async (req, res) => {
 
 module.exports = {
   obtenerEventos,
-  obtenerEventosPublicados,
   obtenerTodosEventos,
   crearEvento,
   actualizarEvento,
