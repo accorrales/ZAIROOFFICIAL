@@ -4,6 +4,15 @@ const obtenerTiersPorEvento = async (req, res) => {
   const { id_evento } = req.params;
 
   try {
+    const eventoResult = await pool.query(
+      `SELECT estado FROM eventos WHERE id_evento = $1 LIMIT 1`,
+      [id_evento]
+    );
+
+    if (eventoResult.rows.length === 0 || eventoResult.rows[0].estado !== true) {
+      return res.status(404).json({ error: 'Evento no disponible' });
+    }
+
     const result = await pool.query(
       `
       SELECT
