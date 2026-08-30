@@ -50,6 +50,10 @@ const ensureSchema = async () => {
 
     // Módulo WhatsApp: conversaciones, mensajes, comprobantes e historial.
     await ejecutarSqlIdempotente('whatsapp_module.sql');
+
+    // Eventos teaser: un evento puede mostrarse en el Home como "Próximamente"
+    // sin habilitar ventas ni exponer precio, ubicación o descripción.
+    await ejecutarSqlIdempotente('eventos_home_teaser.sql');
   } catch (error) {
     // No tumbamos el servidor si esto falla; solo lo registramos.
     console.error('ensureSchema: no se pudo verificar/actualizar el esquema:', error.message);
