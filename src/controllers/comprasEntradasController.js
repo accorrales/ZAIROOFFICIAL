@@ -1,3 +1,4 @@
+const { ageAtEvent } = require('../utils/eventAge');
 const pool = require('../config/database');
 const QRCode = require('qrcode');
 
@@ -132,25 +133,12 @@ exports.crearCompra = async (req, res) => {
         return res.status(400).json({ message: 'Cada persona debe ingresar su fecha de nacimiento' });
       }
 
-      const fechaNacimiento = new Date(persona.fecha_nacimiento);
-
-      if (isNaN(fechaNacimiento.getTime())) {
-        return res.status(400).json({
-          message: `La fecha de nacimiento de ${persona.nombre_completo} no es válida`
-        });
+      const edad = ageAtEvent(persona.fecha_nacimiento, fechaEvento);
+      if (edad === null || edad < 0) {
+        return res.status(400).json({ message: `La fecha de nacimiento de ${persona.nombre_completo} no es válida` });
       }
-
-      const fechaCumple17 = new Date(fechaNacimiento);
-      fechaCumple17.setFullYear(fechaCumple17.getFullYear() + 17);
-      fechaCumple17.setHours(0, 0, 0, 0);
-
-      const fechaEventoComparacion = new Date(fechaEvento);
-      fechaEventoComparacion.setHours(0, 0, 0, 0);
-
-      if (fechaCumple17 > fechaEventoComparacion) {
-        return res.status(400).json({
-          message: `${persona.nombre_completo} debe tener 17 años cumplidos para la fecha del evento`
-        });
+      if (edad < 16) {
+        return res.status(400).json({ message: "Para ingresar debés tener 16 años cumplidos. Si sos menor de 16, necesitás comprar tu entrada con un acompañante mayor de 18 años." });
       }
     }
 
