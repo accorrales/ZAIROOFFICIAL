@@ -153,7 +153,7 @@ exports.crearCompra = async (req, res) => {
 
     if (hayMenorDeEdad && !hayAdultoResponsable) {
       return res.status(400).json({
-        message: 'Si alguna persona tiene 16 o 17 años, la compra debe incluir también la entrada de al menos una persona mayor de 18 años que será su adulto responsable e ingresará con ella al evento.'
+        message: 'Si alguna persona tiene 16 o 17 años, la compra debe incluir también la entrada de al menos una persona 18 años o más que será su adulto responsable e ingresará con ella al evento.'
       });
     }
 
