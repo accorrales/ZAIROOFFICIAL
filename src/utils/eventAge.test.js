@@ -86,7 +86,7 @@ for (const birth of ['2010-10-31', '2009-10-31']) {
 
     assert.equal(res.code, 400);
     assert.match(res.body.message, /16 o 17 años/i);
-    assert.match(res.body.message, /mayor de 18 años/i);
+    assert.match(res.body.message, /18 años o más/i);
     assert.equal(writes.length, 0);
   });
 }
