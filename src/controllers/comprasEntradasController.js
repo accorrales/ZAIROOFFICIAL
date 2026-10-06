@@ -123,6 +123,7 @@ exports.crearCompra = async (req, res) => {
     }
 
     const fechaEvento = new Date(evento.fecha);
+    const edades = [];
 
     for (const persona of personas) {
       if (!persona.nombre_completo || !persona.nombre_completo.trim()) {
@@ -137,9 +138,23 @@ exports.crearCompra = async (req, res) => {
       if (edad === null || edad < 0) {
         return res.status(400).json({ message: `La fecha de nacimiento de ${persona.nombre_completo} no es válida` });
       }
+
       if (edad < 16) {
-        return res.status(400).json({ message: "Para ingresar debés tener 16 años cumplidos. Si sos menor de 16, necesitás comprar tu entrada con un acompañante mayor de 18 años." });
+        return res.status(400).json({
+          message: 'El evento es únicamente para personas de 16 años o más. Las personas menores de 16 años no pueden comprar entrada ni ingresar al evento.'
+        });
       }
+
+      edades.push(edad);
+    }
+
+    const hayMenorDeEdad = edades.some((edad) => edad >= 16 && edad < 18);
+    const hayAdultoResponsable = edades.some((edad) => edad >= 18);
+
+    if (hayMenorDeEdad && !hayAdultoResponsable) {
+      return res.status(400).json({
+        message: 'Si alguna persona tiene 16 o 17 años, la compra debe incluir también la entrada de al menos una persona mayor de 18 años que será su adulto responsable e ingresará con ella al evento.'
+      });
     }
 
     const tierResult = await pool.query(
