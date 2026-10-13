@@ -1,5 +1,6 @@
 const { ageAtEvent } = require('../utils/eventAge');
 const pool = require('../config/database');
+const { packageQuote } = require('../utils/ticketPackage');
 const QRCode = require('qrcode');
 
 const emailService = require('../services/emailService');
@@ -52,7 +53,7 @@ const obtenerEntradaPorUuid = async (uuid) => {
       e.ubicacion AS ubicacion_evento,
       e.imagen AS imagen_evento,
       t.nombre AS entrada,
-      t.precio
+      c.total / NULLIF(c.cantidad, 0) AS precio
     FROM compra_entrada_detalles d
     INNER JOIN compras_entradas c ON c.id_compra = d.id_compra
     INNER JOIN eventos e ON e.id_evento = c.id_evento
@@ -66,6 +67,7 @@ const obtenerEntradaPorUuid = async (uuid) => {
 };
 
 exports.crearCompra = async (req, res) => {
+  let client;
   try {
     const {
       id_evento,
@@ -89,7 +91,7 @@ exports.crearCompra = async (req, res) => {
       return res.status(400).json({ message: 'Debe ingresar un número de teléfono' });
     }
 
-    if (!personas || personas.length === 0) {
+    if (!Array.isArray(personas) || personas.length === 0 || personas.length > 10) {
       return res.status(400).json({ message: 'Debe agregar al menos una persona' });
     }
 
@@ -157,18 +159,23 @@ exports.crearCompra = async (req, res) => {
       });
     }
 
-    const tierResult = await pool.query(
-      `SELECT * FROM entrada_tiers WHERE id_tier = $1 AND id_evento = $2`,
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const tierResult = await client.query(
+      `SELECT * FROM entrada_tiers WHERE id_tier = $1 AND id_evento = $2 FOR UPDATE`,
       [id_tier, id_evento]
     );
 
     if (tierResult.rows.length === 0) {
-      return res.status(404).json({ message: 'Tipo de entrada no encontrado para este evento' });
+      const error = new Error('Tipo de entrada no encontrado para este evento'); error.statusCode = 404; throw error;
     }
 
     const tier = tierResult.rows[0];
     const cantidad = personas.length;
-    const subtotal = Number(tier.precio) * cantidad;
+    let quote;
+    try { quote = packageQuote(tier, cantidad); } catch(error) { error.statusCode = 400; throw error; }
+    const subtotal = quote.subtotal;
+    if (tier.entradas_por_paquete > 1 && codigo_descuento?.toString().trim()) { const error = new Error('Las promociones por paquete no se combinan con códigos de descuento'); error.statusCode = 400; throw error; }
 
     // Aplicar código de descuento si el comprador ingresó uno.
     let descuento = 0;
@@ -178,7 +185,7 @@ exports.crearCompra = async (req, res) => {
       const evaluacion = await evaluarCodigo(codigo_descuento, id_evento, subtotal);
 
       if (!evaluacion.ok) {
-        return res.status(400).json({ message: evaluacion.error });
+        const error = new Error(evaluacion.error); error.statusCode = 400; throw error;
       }
 
       descuento = evaluacion.descuento;
@@ -187,7 +194,7 @@ exports.crearCompra = async (req, res) => {
 
     const total = Math.round((subtotal - descuento) * 100) / 100;
 
-    const compraResult = await pool.query(
+    const compraResult = await client.query(
       `
       INSERT INTO compras_entradas
       (
@@ -200,9 +207,11 @@ exports.crearCompra = async (req, res) => {
         descuento,
         total,
         id_codigo,
-        bebida_cortesia
+        bebida_cortesia,
+        unidades_reservadas,
+        cupo_reservado
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
       RETURNING *
       `,
       [
@@ -215,7 +224,7 @@ exports.crearCompra = async (req, res) => {
         descuento,
         total,
         idCodigo,
-        bebidaCortesia
+        bebidaCortesia, quote.units, tier.cantidad_disponible != null
       ]
     );
 
@@ -224,7 +233,7 @@ exports.crearCompra = async (req, res) => {
     // No se suma el uso del código aquí porque la compra todavía está pendiente.
     // Las métricas de códigos se calculan desde entradas pagadas y no invalidadas.
     for (const persona of personas) {
-      await pool.query(
+      await client.query(
         `
         INSERT INTO compra_entrada_detalles
         (id_compra, nombre_completo, fecha_nacimiento, bebida_cortesia)
@@ -239,14 +248,17 @@ exports.crearCompra = async (req, res) => {
       );
     }
 
+    if (tier.cantidad_disponible != null) await client.query('UPDATE entrada_tiers SET cantidad_disponible = cantidad_disponible - $1 WHERE id_tier = $2', [quote.units, id_tier]);
+    await client.query('COMMIT');
     res.status(201).json({
       message: 'Compra creada correctamente',
       compra
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error creando compra' });
-  }
+    if (client) await client.query('ROLLBACK');
+    if (!error.statusCode) console.error(error);
+    res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : 'Error creando compra' });
+  } finally { if (client) client.release(); }
 };
 
 exports.listarPendientes = async (req, res) => {
@@ -336,7 +348,7 @@ exports.confirmarCompra = async (req, res) => {
     });
 
     return res.json({
-      message: 'Compra confirmada correctamente',
+      message: resultado.correoEnviado === false ? 'Compra confirmada; el correo no pudo enviarse. Revisá las entradas en el panel.' : 'Compra confirmada correctamente',
       compra: resultado.compra
     });
   } catch (error) {
@@ -377,31 +389,21 @@ exports.testEmail = async (req, res) => {
 };
 
 exports.rechazarCompra = async (req, res) => {
+  const client = await pool.connect();
   try {
-    const { id } = req.params;
-
-    const result = await pool.query(
-      `
-      UPDATE compras_entradas
-      SET estado = 'RECHAZADA'
-      WHERE id_compra = $1
-      RETURNING *
-      `,
-      [id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Compra no encontrada' });
+    await client.query('BEGIN');
+    const result = await client.query('SELECT * FROM compras_entradas WHERE id_compra = $1 FOR UPDATE', [req.params.id]);
+    const compra = result.rows[0];
+    if (!compra) { await client.query('ROLLBACK'); return res.status(404).json({message:'Compra no encontrada'}); }
+    if (compra.estado === 'PAGADA') { await client.query('ROLLBACK'); return res.status(409).json({message:'No se puede rechazar una compra pagada'}); }
+    if (compra.estado !== 'RECHAZADA') {
+      if (compra.cupo_reservado) await client.query('UPDATE entrada_tiers SET cantidad_disponible = cantidad_disponible + $1 WHERE id_tier = $2', [compra.unidades_reservadas, compra.id_tier]);
+      await client.query("UPDATE compras_entradas SET estado = 'RECHAZADA', cupo_reservado = false WHERE id_compra = $1", [compra.id_compra]);
     }
-
-    res.json({
-      message: 'Compra rechazada correctamente',
-      compra: result.rows[0]
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error rechazando compra' });
-  }
+    await client.query('COMMIT');
+    res.json({message:'Compra rechazada correctamente', compra:{...compra, estado:'RECHAZADA'}});
+  } catch(error) { await client.query('ROLLBACK'); console.error(error); res.status(500).json({message:'Error rechazando compra'}); }
+  finally { client.release(); }
 };
 
 exports.validarQr = async (req, res) => {

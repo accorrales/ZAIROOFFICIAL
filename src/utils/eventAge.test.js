@@ -20,11 +20,13 @@ async function runPurchase(personas) {
   const pool = {
     query: async (sql) => {
       if (sql.includes('FROM eventos')) return { rows: [event] };
-      if (sql.includes('FROM entrada_tiers')) return { rows: [{ id_tier: 2, precio: 6000 }] };
+      if (sql.includes('FROM entrada_tiers')) return { rows: [{ id_tier: 2, precio: 6000, estado: true }] };
+      if (['BEGIN', 'COMMIT', 'ROLLBACK'].includes(sql)) return { rows: [] };
       writes.push(sql);
       return { rows: [{ id_compra: 'MOCK' }] };
     }
   };
+  pool.connect = async () => ({ query: pool.query, release() {} });
 
   const sandbox = {
     exports: {},
@@ -34,7 +36,7 @@ async function runPurchase(personas) {
         ? pool
         : name === '../utils/eventAge'
           ? { ageAtEvent }
-          : {}
+          : name === '../utils/ticketPackage' ? require('./ticketPackage') : {}
   };
 
   vm.runInNewContext(

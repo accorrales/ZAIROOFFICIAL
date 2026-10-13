@@ -12,6 +12,7 @@ const {
 
 // Público: los compradores necesitan consultar los tiers disponibles.
 router.get('/evento/:id_evento', obtenerTiersPorEvento);
+router.get('/admin/evento/:id_evento', verificarToken, requiereAdmin, obtenerTiersPorEvento);
 
 // Administración de tiers.
 router.post('/', verificarToken, requiereAdmin, crearTier);

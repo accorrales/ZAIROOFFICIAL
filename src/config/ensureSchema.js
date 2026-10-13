@@ -25,6 +25,8 @@ const ejecutarSqlIdempotente = async (nombreArchivo) => {
 };
 
 const ensureSchema = async () => {
+  // Required for package pricing: fail closed if this migration cannot run.
+  await pool.query(fs.readFileSync(path.join(__dirname, '..', 'sql', 'paquetes_promocionales.sql'), 'utf8'));
   try {
     await pool.query(`
       ALTER TABLE compra_entrada_detalles

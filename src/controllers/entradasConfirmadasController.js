@@ -33,7 +33,7 @@ const obtenerEntradasPorEvento = async (req, res) => {
         c.fecha_creacion AS fecha_compra,
         t.id_tier,
         t.nombre     AS tier,
-        t.precio
+        c.total / NULLIF(c.cantidad, 0) AS precio
       FROM compra_entrada_detalles d
       INNER JOIN compras_entradas c ON c.id_compra = d.id_compra
       INNER JOIN entrada_tiers t    ON t.id_tier  = c.id_tier
@@ -224,7 +224,7 @@ const descargarReporteCsv = async (req, res) => {
         c.correo_comprador,
         c.telefono_comprador,
         t.nombre   AS tier,
-        t.precio,
+        c.total / NULLIF(c.cantidad, 0) AS precio,
         d.uuid_entrada,
         CASE
           WHEN d.fecha_invalidacion IS NOT NULL THEN 'INVALIDADA'
