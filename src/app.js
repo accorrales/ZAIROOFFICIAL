@@ -71,19 +71,19 @@ app.use('/api/whatsapp', whatsappRoutes);
 app.use(
   '/api/departamentos',
   verificarToken,
-  requiereRoles('admin', 'rrhh'),
+  requiereRoles('admin', 'rrhh', 'contabilidad'),
   departamentosRoutes
 );
 app.use(
   '/api/empleados',
   verificarToken,
-  requiereRoles('admin', 'rrhh'),
+  requiereRoles('admin', 'rrhh', 'contabilidad'),
   empleadosRoutes
 );
 app.use(
   '/api/conceptos',
   verificarToken,
-  requiereRoles('admin', 'rrhh'),
+  requiereRoles('admin', 'rrhh', 'contabilidad'),
   conceptosRoutes
 );
 app.use(
@@ -95,7 +95,7 @@ app.use(
 app.use(
   '/api/novedades',
   verificarToken,
-  requiereRoles('admin', 'rrhh'),
+  requiereRoles('admin', 'rrhh', 'contabilidad'),
   novedadesRoutes
 );
 app.use('/api/auditoria', verificarToken, requiereAdmin, auditoriaRoutes);
@@ -105,7 +105,7 @@ app.use('/api/entradas', verificarToken, requiereAdmin, entradasRoutes);
 app.use(
   '/api/dashboard-entradas',
   verificarToken,
-  requiereAdmin,
+  requiereRoles('admin', 'contabilidad'),
   entradasConfirmadasRoutes
 );
 

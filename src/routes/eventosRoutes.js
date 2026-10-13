@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { verificarToken, requiereAdmin } = require('../middlewares/authMiddleware');
+const { verificarToken, requiereAdmin, requiereRoles } = require('../middlewares/authMiddleware');
 
 const {
   obtenerEventos,
@@ -74,7 +74,7 @@ router.get('/', sanitizarRespuestaPublica, obtenerEventos);
 router.get('/:id', sanitizarRespuestaPublica, obtenerEventoPorId);
 
 // Administración de eventos (JWT + rol admin).
-router.get('/admin/todos', verificarToken, requiereAdmin, obtenerTodosEventos);
+router.get('/admin/todos', verificarToken, requiereRoles('admin', 'contabilidad'), obtenerTodosEventos);
 router.post('/', verificarToken, requiereAdmin, crearEvento);
 router.put('/:id', verificarToken, requiereAdmin, actualizarEvento);
 router.patch('/:id/desactivar', verificarToken, requiereAdmin, desactivarEvento);
