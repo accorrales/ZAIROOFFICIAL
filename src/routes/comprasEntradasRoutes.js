@@ -22,10 +22,10 @@ router.get('/wallet/google/:uuid', comprasEntradasController.obtenerGoogleWallet
 
 // Operaciones administrativas: contienen datos personales o modifican el estado
 // de compras/entradas, por lo que requieren JWT válido y los roles indicados.
-router.get('/pendientes', verificarToken, requiereAdmin, comprasEntradasController.listarPendientes);
-router.get('/:id', verificarToken, requiereAdmin, comprasEntradasController.obtenerCompraPorId);
-router.patch('/:id/confirmar', verificarToken, requiereAdmin, comprasEntradasController.confirmarCompra);
-router.patch('/:id/rechazar', verificarToken, requiereAdmin, comprasEntradasController.rechazarCompra);
+router.get('/pendientes', verificarToken, requiereRoles('admin', 'contabilidad'), comprasEntradasController.listarPendientes);
+router.get('/:id', verificarToken, requiereRoles('admin', 'contabilidad'), comprasEntradasController.obtenerCompraPorId);
+router.patch('/:id/confirmar', verificarToken, requiereRoles('admin', 'contabilidad'), comprasEntradasController.confirmarCompra);
+router.patch('/:id/rechazar', verificarToken, requiereRoles('admin', 'contabilidad'), comprasEntradasController.rechazarCompra);
 router.post(
   '/validar-qr',
   verificarToken,
