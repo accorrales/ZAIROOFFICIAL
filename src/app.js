@@ -133,11 +133,10 @@ app.get('/', async (req, res) => {
   }
 });
 
-app.listen(PORT, async () => {
+ensureSchema().then(() => app.listen(PORT, () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
-  await ensureSchema();
   iniciarLocationNotificationCron();
   // Informa si el módulo WhatsApp está activo o desactivado por variables
   // faltantes. Nunca tumba el arranque; solo registra el estado.
   whatsappConfig.registrarEstado();
-});
+})).catch(error => { console.error('No se pudo preparar el esquema', error); process.exitCode = 1; });

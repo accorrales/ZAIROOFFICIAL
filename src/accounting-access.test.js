@@ -26,6 +26,8 @@ test('accounting can use financial APIs while unrelated operations remain denied
   express.application.listen = function() { app = this; };
   process.env.JWT_SECRET = 'local-authorization-test-only';
   require('./app');
+  // Schema preparation now completes before the application listens.
+  await new Promise(resolve => setImmediate(resolve));
   express.application.listen = listen;
   app.listen = listen;
   const server = app.listen(0, '127.0.0.1');
