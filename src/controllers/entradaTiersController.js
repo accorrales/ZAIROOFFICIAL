@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const { validateTier } = require('../utils/ticketPackage');
 
 const obtenerTiersPorEvento = async (req, res) => {
   const { id_evento } = req.params;
@@ -9,7 +10,7 @@ const obtenerTiersPorEvento = async (req, res) => {
       [id_evento]
     );
 
-    if (eventoResult.rows.length === 0 || eventoResult.rows[0].estado !== true) {
+    if (eventoResult.rows.length === 0 || (!req.user && eventoResult.rows[0].estado !== true)) {
       return res.status(404).json({ error: 'Evento no disponible' });
     }
 
@@ -22,6 +23,7 @@ const obtenerTiersPorEvento = async (req, res) => {
         descripcion,
         precio,
         cantidad_disponible,
+        entradas_por_paquete,
         estado,
         to_char(fecha_inicio AT TIME ZONE 'America/Costa_Rica', 'YYYY-MM-DD"T"HH24:MI') AS fecha_inicio,
         to_char(fecha_fin    AT TIME ZONE 'America/Costa_Rica', 'YYYY-MM-DD"T"HH24:MI') AS fecha_fin,
@@ -39,7 +41,11 @@ const obtenerTiersPorEvento = async (req, res) => {
       [id_evento]
     );
 
-    res.json(result.rows);
+    res.json(result.rows.map(row => {
+      if (req.user?.rol?.trim().toLowerCase() === 'admin') return row;
+      const { cantidad_disponible, ...publicTier } = row;
+      return publicTier;
+    }));
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al obtener tiers' });
@@ -57,15 +63,17 @@ const crearTier = async (req, res) => {
     cantidad_disponible
   } = req.body;
 
+  let config;
+  try { config = validateTier(req.body); } catch(error) { return res.status(400).json({error:error.message}); }
   try {
     const result = await pool.query(
       `INSERT INTO entrada_tiers
-       (id_evento, nombre, descripcion, precio, fecha_inicio, fecha_fin, cantidad_disponible)
+       (id_evento, nombre, descripcion, precio, fecha_inicio, fecha_fin, cantidad_disponible, entradas_por_paquete, estado)
        VALUES (
          $1,$2,$3,$4,
          ($5)::timestamp AT TIME ZONE 'America/Costa_Rica',
          ($6)::timestamp AT TIME ZONE 'America/Costa_Rica',
-         $7
+         $7,$8,$9
        )
        RETURNING *`,
       [
@@ -75,7 +83,7 @@ const crearTier = async (req, res) => {
         precio,
         fecha_inicio || null,
         fecha_fin || null,
-        cantidad_disponible || null
+        config.stock, config.size, req.body.estado !== false
       ]
     );
 
@@ -99,6 +107,8 @@ const actualizarTier = async (req, res) => {
     estado
   } = req.body;
 
+  let config;
+  try { config = validateTier(req.body); } catch(error) { return res.status(400).json({error:error.message}); }
   try {
     const result = await pool.query(
       `UPDATE entrada_tiers
@@ -108,8 +118,10 @@ const actualizarTier = async (req, res) => {
            fecha_inicio = ($4)::timestamp AT TIME ZONE 'America/Costa_Rica',
            fecha_fin = ($5)::timestamp AT TIME ZONE 'America/Costa_Rica',
            cantidad_disponible = $6,
-           estado = $7
+           estado = $7,
+           entradas_por_paquete = $9
        WHERE id_tier = $8
+         AND (entradas_por_paquete = $9 OR NOT EXISTS (SELECT 1 FROM compras_entradas WHERE id_tier = $8))
        RETURNING *`,
       [
         nombre,
@@ -117,14 +129,14 @@ const actualizarTier = async (req, res) => {
         precio,
         fecha_inicio || null,
         fecha_fin || null,
-        cantidad_disponible,
+        config.stock,
         estado,
-        id
+        id, config.size
       ]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Tier no encontrado' });
+      return res.status(409).json({ error: 'Tier no encontrado o el tamaño del paquete tiene compras asociadas; creá otra promoción' });
     }
 
     res.json(result.rows[0]);

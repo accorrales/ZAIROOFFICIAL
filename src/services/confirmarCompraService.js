@@ -13,9 +13,8 @@ const walletService = require('./walletService');
 //    - el botón "Confirmar" del panel de compras (flujo existente),
 //    - la confirmación desde el módulo de WhatsApp/comprobantes.
 //
-//  El comportamiento observable NO cambia: mismos QR, mismo correo,
-//  mismo cambio de estado a 'PAGADA'. Se añade, de forma aditiva, el
-//  registro en purchase_status_history (si la tabla existe).
+//  La confirmación bloquea la compra y guarda los QR y el pago juntos.
+//  El correo se envía después de confirmar la transacción.
 // ============================================================
 
 /**
@@ -52,7 +51,12 @@ const registrarHistorial = async (client, { idCompra, oldStatus, newStatus, reas
 const confirmarCompra = async (idCompra, opts = {}) => {
   const { source = 'PANEL', createdBy = null } = opts;
 
-  const compraResult = await pool.query(
+  const client = await pool.connect();
+  let committed = false;
+  let released = false;
+  try {
+  await client.query('BEGIN');
+  const compraResult = await client.query(
     `
     SELECT
       c.*,
@@ -65,7 +69,7 @@ const confirmarCompra = async (idCompra, opts = {}) => {
     FROM compras_entradas c
     INNER JOIN eventos e ON e.id_evento = c.id_evento
     INNER JOIN entrada_tiers t ON t.id_tier = c.id_tier
-    WHERE c.id_compra = $1
+    WHERE c.id_compra = $1 FOR UPDATE OF c
     `,
     [idCompra]
   );
@@ -77,6 +81,7 @@ const confirmarCompra = async (idCompra, opts = {}) => {
   }
 
   const compra = compraResult.rows[0];
+  if (compra.estado === 'RECHAZADA') { const err = new Error('Esta compra fue rechazada; debe realizarse una compra nueva'); err.statusCode = 409; throw err; }
 
   if (compra.estado === 'PAGADA') {
     const err = new Error('Esta compra ya fue confirmada');
@@ -85,7 +90,7 @@ const confirmarCompra = async (idCompra, opts = {}) => {
     throw err;
   }
 
-  const personasResult = await pool.query(
+  const personasResult = await client.query(
     `
     SELECT *
     FROM compra_entrada_detalles
@@ -102,7 +107,7 @@ const confirmarCompra = async (idCompra, opts = {}) => {
     const qrData = walletService.getTicketUrl(uuidEntrada);
     const bebidaCortesia = persona.bebida_cortesia || compra.bebida_cortesia || null;
 
-    await pool.query(
+    await client.query(
       `
       UPDATE compra_entrada_detalles
       SET
@@ -126,7 +131,7 @@ const confirmarCompra = async (idCompra, opts = {}) => {
       ubicacion_evento: compra.ubicacion_evento,
       imagen_evento: compra.imagen_evento,
       entrada: compra.entrada,
-      precio: compra.precio_entrada,
+      precio: Number(compra.total) / Number(compra.cantidad),
       estado: 'CONFIRMADA'
     };
 
@@ -142,14 +147,9 @@ const confirmarCompra = async (idCompra, opts = {}) => {
     });
   }
 
-  await emailService.enviarEntradas({
-    correo: compra.correo_comprador,
-    evento: compra.evento,
-    entrada: compra.entrada,
-    personas: personasConQr
-  });
 
-  const updateCompra = await pool.query(
+
+  const updateCompra = await client.query(
     `
     UPDATE compras_entradas
     SET estado = 'PAGADA'
@@ -159,6 +159,10 @@ const confirmarCompra = async (idCompra, opts = {}) => {
     [idCompra]
   );
 
+  await client.query('COMMIT');
+  committed = true;
+  client.release();
+  released = true;
   await registrarHistorial(pool, {
     idCompra,
     oldStatus: compra.estado,
@@ -168,11 +172,24 @@ const confirmarCompra = async (idCompra, opts = {}) => {
     createdBy
   });
 
+  // Payment and QR issuance stay committed if the mail provider is unavailable.
+  let correoEnviado = true;
+  try {
+  await emailService.enviarEntradas({
+    correo: compra.correo_comprador,
+    evento: compra.evento,
+    entrada: compra.entrada,
+    personas: personasConQr
+  });
+  } catch(error) { correoEnviado = false; console.error('Error enviando entradas confirmadas', error); }
   return {
     compra: updateCompra.rows[0],
     personas: personasConQr,
+    correoEnviado,
     yaConfirmada: false
   };
+  } catch(error) { if (!committed) await client.query('ROLLBACK'); throw error; }
+  finally { if (!released) client.release(); }
 };
 
 module.exports = {

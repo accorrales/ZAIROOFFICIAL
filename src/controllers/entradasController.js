@@ -30,6 +30,7 @@ const crearEntrada = async (req, res) => {
         AND (fecha_inicio IS NULL OR NOW() >= fecha_inicio)
         AND (fecha_fin IS NULL OR NOW() <= fecha_fin)
         AND (cantidad_disponible IS NULL OR cantidad_disponible > 0)
+        AND entradas_por_paquete = 1
       `,
       [id_tier, id_evento]
     );

@@ -74,15 +74,19 @@ const responderPrecios = async (idEvento) => {
   }
 
   const result = await pool.query(
-    `SELECT nombre, precio FROM entrada_tiers
+    `SELECT nombre, precio, entradas_por_paquete FROM entrada_tiers
      WHERE id_evento = $1
+       AND estado = true
+       AND (fecha_inicio IS NULL OR fecha_inicio <= NOW())
+       AND (fecha_fin IS NULL OR fecha_fin >= NOW())
+       AND (cantidad_disponible IS NULL OR cantidad_disponible > 0)
      ORDER BY precio ASC`,
     [idEvento]
   );
 
   if (result.rows.length === 0) return { requiereHumano: true };
 
-  const lineas = result.rows.map((t) => `• ${t.nombre}: ${money(t.precio)}`).join('\n');
+  const lineas = result.rows.map((t) => `• ${t.nombre}: ${money(t.precio)} por ${t.entradas_por_paquete > 1 ? 'paquete de ' + t.entradas_por_paquete + ' entradas' : 'entrada'}`).join('\n');
   return { texto: `Estos son los precios disponibles: 🎟️\n\n${lineas}` };
 };
 
@@ -93,6 +97,9 @@ const responderDisponibilidad = async (idEvento) => {
   const result = await pool.query(
     `SELECT COUNT(*)::int AS n FROM entrada_tiers
      WHERE id_evento = $1
+       AND estado = true
+       AND (fecha_inicio IS NULL OR fecha_inicio <= NOW())
+       AND (cantidad_disponible IS NULL OR cantidad_disponible > 0)
        AND (fecha_fin IS NULL OR fecha_fin >= NOW())`,
     [idEvento]
   );
