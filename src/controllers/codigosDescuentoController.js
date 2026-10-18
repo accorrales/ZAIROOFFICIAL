@@ -142,6 +142,57 @@ const listarCodigos = async (req, res) => {
   }
 };
 
+// El ranking se calcula por el evento de la compra, no por el evento al
+// que estaba asociado el código. Esto incluye códigos globales (id_evento NULL)
+// sin mezclar sus ventas de otros eventos.
+const obtenerRankingPorEvento = async (req, res) => {
+  const idEventoTexto = String(req.params.idEvento || '');
+  const idEvento = Number(idEventoTexto);
+
+  if (!/^[1-9][0-9]*$/.test(idEventoTexto) || !Number.isSafeInteger(idEvento)) {
+    return res.status(400).json({ error: 'Evento inválido' });
+  }
+
+  try {
+    const evento = await pool.query(
+      'SELECT id_evento FROM eventos WHERE id_evento = $1',
+      [idEvento]
+    );
+
+    if (evento.rows.length === 0) {
+      return res.status(404).json({ error: 'Evento no encontrado' });
+    }
+
+    const resultado = await pool.query(
+      `SELECT
+         c.id_codigo,
+         c.codigo,
+         c.descripcion,
+         COUNT(d.id_detalle)::int AS entradas_vendidas,
+         COALESCE(SUM(ce.total / NULLIF(ce.cantidad, 0)), 0) AS total_vendido
+       FROM compras_entradas ce
+       INNER JOIN compra_entrada_detalles d ON d.id_compra = ce.id_compra
+       INNER JOIN codigos_descuento c ON c.id_codigo = ce.id_codigo
+       WHERE ce.id_evento = $1
+         AND ce.estado = 'PAGADA'
+         AND d.fecha_invalidacion IS NULL
+       GROUP BY c.id_codigo, c.codigo, c.descripcion
+       ORDER BY entradas_vendidas DESC, total_vendido DESC, c.codigo ASC
+       LIMIT 3`,
+      [idEvento]
+    );
+
+    return res.json(resultado.rows.map((fila) => ({
+      ...fila,
+      entradas_vendidas: Number(fila.entradas_vendidas || 0),
+      total_vendido: Number(fila.total_vendido || 0)
+    })));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error al obtener ranking del evento' });
+  }
+};
+
 const obtenerCodigoPorId = async (req, res) => {
   const { id } = req.params;
 
@@ -405,6 +456,7 @@ const validarCodigo = async (req, res) => {
 
 module.exports = {
   listarCodigos,
+  obtenerRankingPorEvento,
   obtenerCodigoPorId,
   crearCodigo,
   actualizarCodigo,
