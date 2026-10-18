@@ -5,6 +5,7 @@ const { verificarToken, requiereAdmin } = require('../middlewares/authMiddleware
 
 const {
   listarCodigos,
+  obtenerRankingPorEvento,
   obtenerCodigoPorId,
   crearCodigo,
   actualizarCodigo,
@@ -16,6 +17,9 @@ const {
 
 // Validación pública (la usa el comprador antes de pagar).
 router.post('/validar', validarCodigo);
+
+// El ranking requiere sesión de administrador y se filtra por evento.
+router.get('/ranking/:idEvento', verificarToken, requiereAdmin, obtenerRankingPorEvento);
 
 // CRUD administrativo.
 router.get('/', verificarToken, requiereAdmin, listarCodigos);
