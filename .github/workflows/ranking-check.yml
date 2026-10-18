@@ -1,0 +1,25 @@
+name: Ranking por evento - backend
+
+on:
+  push:
+    paths:
+      - 'src/controllers/codigosDescuentoController.js'
+      - 'src/controllers/codigosDescuentoController.test.js'
+      - 'src/routes/codigosDescuentoRoutes.js'
+      - 'package*.json'
+      - '.github/workflows/ranking-check.yml'
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: node --check src/controllers/codigosDescuentoController.js
+      - run: node --check src/routes/codigosDescuentoRoutes.js
+      - run: node --test src/controllers/codigosDescuentoController.test.js
