@@ -46,6 +46,10 @@ exports.enviarEntradas = async ({
   personas
 }) => {
   const logoUrl = getLogoUrl();
+  const esInfamous = /\binfamous\b/i.test(String(evento || ''));
+  const theme = esInfamous
+    ? { accent: '#d6b77a', highlight: '#e2c990', background: '#16090d', glow: '176,35,56', gold: '214,183,122', text: '#e4d4d7', muted: '#bba4aa' }
+    : { accent: '#c6ff57', highlight: '#ffd60a', background: '#07120b', glow: '198,255,87', gold: '255,214,10', text: '#e5f2dc', muted: '#8fa27d' };
 
   const tarjetasEntradas = personas.map((p, index) => `
     <div style="
@@ -53,24 +57,24 @@ exports.enviarEntradas = async ({
       padding:24px;
       border-radius:26px;
       background:
-        radial-gradient(circle at top, rgba(196,255,87,0.10), transparent 45%),
-        #07120b;
-      border:1px solid rgba(196,255,87,0.24);
+        radial-gradient(circle at top, rgba(${theme.glow},0.10), transparent 45%),
+        ${theme.background};
+      border:1px solid rgba(${theme.glow},0.24);
       text-align:center;
       box-shadow:
         0 18px 42px rgba(0,0,0,0.28),
-        inset 0 0 30px rgba(255,214,10,0.04);
+        inset 0 0 30px rgba(${theme.gold},0.04);
     ">
 
       <div style="
         display:inline-block;
         padding:7px 12px;
         border-radius:999px;
-        background:rgba(196,255,87,0.10);
-        border:1px solid rgba(196,255,87,0.28);
+        background:rgba(${theme.glow},0.10);
+        border:1px solid rgba(${theme.glow},0.28);
         font-size:11px;
         letter-spacing:2px;
-        color:#c6ff57;
+        color:${theme.accent};
         margin-bottom:12px;
         font-weight:800;
       ">
@@ -101,8 +105,8 @@ exports.enviarEntradas = async ({
             height:248px;
             padding:14px;
             border-radius:26px;
-            background:linear-gradient(135deg, #baff39, #f4e900);
-            box-shadow:0 0 28px rgba(198,255,87,0.18), 0 0 38px rgba(255,214,10,0.12);
+            background:linear-gradient(135deg, ${theme.accent}, ${theme.highlight});
+            box-shadow:0 0 28px rgba(${theme.glow},0.18), 0 0 38px rgba(${theme.gold},0.12);
             text-align:center;
             line-height:0;
             font-size:0;
@@ -131,16 +135,16 @@ exports.enviarEntradas = async ({
       </table>
 
       <div style="margin-top:18px;">
-        ${botonWallet(p.qr_url, 'Abrir QR', '#ffd60a', '#07120b')}
+        ${botonWallet(p.qr_url, 'Abrir QR', theme.highlight, theme.background)}
         ${botonWallet(p.apple_wallet_url, 'Agregar a Apple Wallet', '#ffffff', '#050505')}
-        ${botonWallet(p.google_wallet_url, 'Agregar a Google Wallet', '#c6ff57', '#07120b')}
-        ${botonWallet(p.ticket_url, 'Ver entrada online', 'transparent', '#c6ff57')}
+        ${botonWallet(p.google_wallet_url, 'Agregar a Google Wallet', theme.accent, theme.background)}
+        ${botonWallet(p.ticket_url, 'Ver entrada online', 'transparent', theme.accent)}
       </div>
 
       <p style="
         margin-top:16px;
         font-size:12px;
-        color:#8fa27d;
+        color:${theme.muted};
       ">
         Si la imagen del QR no carga en tu correo, tocá “Abrir QR”. Esta entrada es personal y válida para un único ingreso.
       </p>
@@ -157,9 +161,9 @@ exports.enviarEntradas = async ({
         margin:0;
         padding:44px 18px;
         background:
-          radial-gradient(circle at top left, rgba(198,255,87,0.16), transparent 28%),
-          radial-gradient(circle at top right, rgba(255,214,10,0.14), transparent 30%),
-          linear-gradient(180deg, #020403 0%, #061008 42%, #020403 100%);
+          radial-gradient(circle at top left, rgba(${theme.glow},0.16), transparent 28%),
+          radial-gradient(circle at top right, rgba(${theme.gold},0.14), transparent 30%),
+          linear-gradient(180deg, ${theme.background} 0%, ${theme.background} 42%, ${theme.background} 100%);
         font-family:Arial, Helvetica, sans-serif;
         color:#ffffff;
       ">
@@ -167,18 +171,18 @@ exports.enviarEntradas = async ({
         <div style="
           max-width:720px;
           margin:0 auto;
-          background:linear-gradient(180deg, rgba(7,18,11,0.98), rgba(3,10,6,0.98));
+          background:linear-gradient(180deg, ${theme.background}, ${theme.background});
           border-radius:32px;
           overflow:hidden;
-          border:1px solid rgba(198,255,87,0.22);
-          box-shadow:0 28px 80px rgba(0,0,0,0.45), 0 0 55px rgba(198,255,87,0.08);
+          border:1px solid rgba(${theme.glow},0.22);
+          box-shadow:0 28px 80px rgba(0,0,0,0.45), 0 0 55px rgba(${theme.glow},0.08);
         ">
 
           <div style="
             padding:54px 32px 44px;
-            background:radial-gradient(circle at center top, rgba(198,255,87,0.18), transparent 42%), linear-gradient(135deg, #07120b 0%, #020403 100%);
+            background:radial-gradient(circle at center top, rgba(${theme.glow},0.18), transparent 42%), linear-gradient(135deg, ${theme.background} 0%, ${theme.background} 100%);
             text-align:center;
-            border-bottom:1px solid rgba(198,255,87,0.16);
+            border-bottom:1px solid rgba(${theme.glow},0.16);
           ">
 
             <table role="presentation" align="center" cellpadding="0" cellspacing="0" style="margin:0 auto; border-collapse:separate;">
@@ -187,9 +191,9 @@ exports.enviarEntradas = async ({
                   width:112px;
                   height:112px;
                   border-radius:28px;
-                  background:radial-gradient(circle at top, rgba(198,255,87,0.18), transparent 55%), rgba(3,14,8,0.92);
-                  border:1px solid rgba(198,255,87,0.38);
-                  box-shadow:0 0 28px rgba(198,255,87,0.20), 0 0 44px rgba(255,214,10,0.10), inset 0 0 24px rgba(255,255,255,0.04);
+                  background:radial-gradient(circle at top, rgba(${theme.glow},0.18), transparent 55%), ${theme.background};
+                  border:1px solid rgba(${theme.glow},0.38);
+                  box-shadow:0 0 28px rgba(${theme.glow},0.20), 0 0 44px rgba(${theme.gold},0.10), inset 0 0 24px rgba(255,255,255,0.04);
                   padding:10px;
                   box-sizing:border-box;
                   text-align:center;
@@ -228,13 +232,13 @@ exports.enviarEntradas = async ({
             </h1>
 
             <p style="
-              color:#c6ff57;
+              color:${theme.accent};
               font-size:13px;
               letter-spacing:3px;
               font-weight:800;
               margin:0;
             ">
-              LOST TRIP • OFFICIAL ACCESS
+              ${escapeHtml(evento)} • ACCESO OFICIAL
             </p>
 
           </div>
@@ -245,9 +249,9 @@ exports.enviarEntradas = async ({
               display:inline-block;
               padding:8px 13px;
               border-radius:999px;
-              background:rgba(255,214,10,0.10);
-              border:1px solid rgba(255,214,10,0.25);
-              color:#ffd60a;
+              background:rgba(${theme.gold},0.10);
+              border:1px solid rgba(${theme.gold},0.25);
+              color:${theme.highlight};
               font-size:11px;
               letter-spacing:2px;
               font-weight:900;
@@ -279,33 +283,33 @@ exports.enviarEntradas = async ({
               margin:32px 0;
               padding:24px;
               border-radius:24px;
-              background:linear-gradient(135deg, rgba(198,255,87,0.08), rgba(255,214,10,0.04)), #08130c;
-              border:1px solid rgba(198,255,87,0.20);
+              background:linear-gradient(135deg, rgba(${theme.glow},0.08), rgba(${theme.gold},0.04)), ${theme.background};
+              border:1px solid rgba(${theme.glow},0.20);
               color:#ffffff;
             ">
 
               <h3 style="
                 margin:0 0 18px;
-                color:#c6ff57;
+                color:${theme.accent};
                 font-size:18px;
                 letter-spacing:1px;
               ">
                 Información del evento
               </h3>
 
-              <p style="margin:10px 0; color:#e5f2dc;">
+              <p style="margin:10px 0; color:${theme.text};">
                 <strong style="color:#ffffff;">Evento:</strong> ${escapeHtml(evento)}
               </p>
 
-              <p style="margin:10px 0; color:#e5f2dc;">
+              <p style="margin:10px 0; color:${theme.text};">
                 <strong style="color:#ffffff;">Entrada:</strong> ${escapeHtml(entrada)}
               </p>
 
-              <p style="margin:10px 0; color:#e5f2dc;">
+              <p style="margin:10px 0; color:${theme.text};">
                 <strong style="color:#ffffff;">Fecha confirmación:</strong> ${new Date().toLocaleString('es-CR')}
               </p>
 
-              <p style="margin:10px 0; color:#e5f2dc;">
+              <p style="margin:10px 0; color:${theme.text};">
                 <strong style="color:#ffffff;">Correo:</strong> ${escapeHtml(correo)}
               </p>
 
@@ -327,13 +331,13 @@ exports.enviarEntradas = async ({
               margin-top:40px;
               padding:24px;
               border-radius:22px;
-              background:radial-gradient(circle at top left, rgba(198,255,87,0.12), transparent 45%), #03170e;
-              border:1px solid rgba(52,211,153,0.30);
+              background:radial-gradient(circle at top left, rgba(${theme.glow},0.12), transparent 45%), ${theme.background};
+              border:1px solid rgba(${theme.glow},0.30);
             ">
 
               <h3 style="
                 margin:0 0 14px;
-                color:#c6ff57;
+                color:${theme.accent};
                 font-size:18px;
               ">
                 Información importante
@@ -357,12 +361,12 @@ exports.enviarEntradas = async ({
             <div style="
               margin-top:42px;
               padding-top:24px;
-              border-top:1px solid rgba(198,255,87,0.14);
+              border-top:1px solid rgba(${theme.glow},0.14);
               text-align:center;
-              color:#8fa27d;
+              color:${theme.muted};
               font-size:13px;
             ">
-              <strong style="color:#c6ff57;">ZAIRO EXPERIENCE</strong><br>
+              <strong style="color:${theme.accent};">ZAIRO EXPERIENCE</strong><br>
               © 2026 • Official Digital Access
             </div>
 
