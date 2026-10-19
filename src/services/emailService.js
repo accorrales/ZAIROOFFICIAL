@@ -49,7 +49,8 @@ exports.enviarEntradas = async ({
   const assetsUrl = (process.env.FRONTEND_PUBLIC_URL || 'https://www.zairoclub.com').replace(/\/$/, '') + '/assets/infamous/v2/';
   const logoUrl = esInfamous ? assetsUrl + 'zairo-mark.webp' : getLogoUrl();
   const infamousHeader = esInfamous
-    ? `<img src="${escapeHtml(assetsUrl)}infamous-mark.webp" alt="INFAMOUS" width="520" style="display:block;width:100%;max-width:520px;height:auto;margin:0 auto 22px;border:0;background:transparent;" />
+    ? `<img src="${escapeHtml(logoUrl)}" alt="ZAIRO" width="112" style="display:block;width:112px;height:auto;margin:0 auto 24px;border:0;background:transparent;" />
+       <img src="${escapeHtml(assetsUrl)}infamous-mark.webp" alt="INFAMOUS" width="520" style="display:block;width:100%;max-width:520px;height:auto;margin:0 auto 22px;border:0;background:transparent;" />
        `
     : '';
   const theme = esInfamous
