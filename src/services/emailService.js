@@ -49,8 +49,8 @@ exports.enviarEntradas = async ({
   const assetsUrl = (process.env.FRONTEND_PUBLIC_URL || 'https://www.zairoclub.com').replace(/\/$/, '') + '/assets/infamous/v2/';
   const logoUrl = esInfamous ? assetsUrl + 'zairo-mark.webp' : getLogoUrl();
   const infamousHeader = esInfamous
-    ? `<img src="${escapeHtml(assetsUrl)}infamous-mark.webp" alt="INFAMOUS" width="520" style="display:block;width:100%;max-width:520px;height:auto;margin:28px auto 18px;border:0;" />
-       <p style="margin:0 0 20px;color:#d6cdd1;font-size:12px;letter-spacing:3px;">EL LLAMADO DE LAS ALMAS</p>`
+    ? `<img src="${escapeHtml(assetsUrl)}infamous-mark.webp" alt="INFAMOUS" width="520" style="display:block;width:100%;max-width:520px;height:auto;margin:0 auto 22px;border:0;background:transparent;" />
+       `
     : '';
   const theme = esInfamous
     ? { accent: '#d6b77a', highlight: '#e2c990', background: '#16090d', glow: '176,35,56', gold: '214,183,122', text: '#e4d4d7', muted: '#bba4aa' }
@@ -190,6 +190,7 @@ exports.enviarEntradas = async ({
             border-bottom:1px solid rgba(${theme.glow},0.16);
           ">
 
+            ${esInfamous ? infamousHeader : `
             <table role="presentation" align="center" cellpadding="0" cellspacing="0" style="margin:0 auto; border-collapse:separate;">
               <tr>
                 <td align="center" valign="middle" style="
@@ -226,7 +227,6 @@ exports.enviarEntradas = async ({
               </tr>
             </table>
 
-            ${infamousHeader}
             <h1 style="
               margin:24px 0 8px;
               font-size:44px;
@@ -236,6 +236,7 @@ exports.enviarEntradas = async ({
             ">
               ZAIRO
             </h1>
+            `}
 
             <p style="
               color:${theme.accent};
@@ -244,7 +245,7 @@ exports.enviarEntradas = async ({
               font-weight:800;
               margin:0;
             ">
-              ${escapeHtml(evento)} • ACCESO OFICIAL
+              ${esInfamous ? 'INFAMOUS' : escapeHtml(evento)} · ACCESO OFICIAL
             </p>
 
           </div>
@@ -372,7 +373,7 @@ exports.enviarEntradas = async ({
               color:${theme.muted};
               font-size:13px;
             ">
-              <strong style="color:${theme.accent};">ZAIRO EXPERIENCE</strong><br>
+              ${esInfamous ? `<img src="${escapeHtml(logoUrl)}" alt="ZAIRO" width="96" style="display:block;width:96px;height:auto;margin:0 auto 18px;border:0;background:transparent;" />` : `<strong style="color:${theme.accent};">ZAIRO EXPERIENCE</strong><br>`}
               © 2026 • Official Digital Access
             </div>
 
