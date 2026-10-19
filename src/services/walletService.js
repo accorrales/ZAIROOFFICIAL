@@ -93,13 +93,18 @@ const getAppleWalletUrl = (uuidEntrada) =>
     ? `${getBackendUrl()}/api/compras-entradas/wallet/apple/${uuidEntrada}`
     : null;
 
-const getWalletLogoUrl = () =>
+const isInfamous = (entrada = {}) => /\binfamous\b/i.test(String(entrada.evento || ''));
+const getInfamousAsset = (name) => `${getFrontendUrl()}/assets/infamous/v2/${name}`;
+
+const getWalletLogoUrl = (entrada = {}) =>
+  (isInfamous(entrada) ? (process.env.INFAMOUS_WALLET_LOGO_URL || getInfamousAsset('zairo-mark.webp')) : null) ||
   process.env.ZAIRO_LOGO_URL ||
   'https://www.zairoclub.com/assets/zairo-loader-logo.png';
 
 // Imagen principal (heroImage) del pase de Google Wallet. Configurable por
 // entorno; si no está definida, se arma a partir del frontend público.
-const getGoogleWalletHeroImageUrl = () =>
+const getGoogleWalletHeroImageUrl = (entrada = {}) =>
+  (isInfamous(entrada) ? (process.env.INFAMOUS_WALLET_HERO_IMAGE_URL || getInfamousAsset('infamous-mark.webp')) : null) ||
   process.env.GOOGLE_WALLET_HERO_IMAGE_URL ||
   `${getFrontendUrl()}/wallet/zairo-lost-trip-wallet.png`;
 
@@ -255,8 +260,8 @@ const generarApplePass = async (entrada) => {
     serialNumber: entrada.uuid_entrada,
     logoText: 'ZAIRO',
     foregroundColor: 'rgb(255,255,255)',
-    backgroundColor: 'rgb(4,12,7)',
-    labelColor: 'rgb(198,255,87)',
+    backgroundColor: isInfamous(entrada) ? 'rgb(22,9,13)' : 'rgb(4,12,7)',
+    labelColor: isInfamous(entrada) ? 'rgb(214,183,122)' : 'rgb(198,255,87)',
     sharingProhibited: true,
     voided: usada,
     relevantDate: toIsoDate(entrada.fecha_evento),
@@ -337,10 +342,10 @@ const generarGoogleWalletUrl = async (entrada) => {
     id: classId,
     issuerName: 'ZAIRO',
     reviewStatus: 'UNDER_REVIEW',
-    hexBackgroundColor: WALLET_BACKGROUND_COLOR,
-    logo: buildWalletImage(getWalletLogoUrl(), 'ZAIRO'),
+    hexBackgroundColor: isInfamous(entrada) ? '#16090d' : WALLET_BACKGROUND_COLOR,
+    logo: buildWalletImage(getWalletLogoUrl(entrada), 'ZAIRO'),
     heroImage: buildWalletImage(
-      getGoogleWalletHeroImageUrl(),
+      getGoogleWalletHeroImageUrl(entrada),
       entrada.evento || 'ZAIRO Experience'
     ),
     eventName: {
