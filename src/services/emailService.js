@@ -45,8 +45,13 @@ exports.enviarEntradas = async ({
   entrada,
   personas
 }) => {
-  const logoUrl = getLogoUrl();
   const esInfamous = /\binfamous\b/i.test(String(evento || ''));
+  const assetsUrl = (process.env.FRONTEND_PUBLIC_URL || 'https://www.zairoclub.com').replace(/\/$/, '') + '/assets/infamous/v2/';
+  const logoUrl = esInfamous ? assetsUrl + 'zairo-mark.webp' : getLogoUrl();
+  const infamousHeader = esInfamous
+    ? `<img src="${escapeHtml(assetsUrl)}infamous-mark.webp" alt="INFAMOUS" width="520" style="display:block;width:100%;max-width:520px;height:auto;margin:28px auto 18px;border:0;" />
+       <p style="margin:0 0 20px;color:#d6cdd1;font-size:12px;letter-spacing:3px;">EL LLAMADO DE LAS ALMAS</p>`
+    : '';
   const theme = esInfamous
     ? { accent: '#d6b77a', highlight: '#e2c990', background: '#16090d', glow: '176,35,56', gold: '214,183,122', text: '#e4d4d7', muted: '#bba4aa' }
     : { accent: '#c6ff57', highlight: '#ffd60a', background: '#07120b', glow: '198,255,87', gold: '255,214,10', text: '#e5f2dc', muted: '#8fa27d' };
@@ -221,6 +226,7 @@ exports.enviarEntradas = async ({
               </tr>
             </table>
 
+            ${infamousHeader}
             <h1 style="
               margin:24px 0 8px;
               font-size:44px;
@@ -306,7 +312,7 @@ exports.enviarEntradas = async ({
               </p>
 
               <p style="margin:10px 0; color:${theme.text};">
-                <strong style="color:#ffffff;">Fecha confirmación:</strong> ${new Date().toLocaleString('es-CR')}
+                <strong style="color:#ffffff;">Fecha confirmación:</strong> ${new Date().toLocaleString('es-CR', { timeZone: 'America/Costa_Rica' })}
               </p>
 
               <p style="margin:10px 0; color:${theme.text};">
