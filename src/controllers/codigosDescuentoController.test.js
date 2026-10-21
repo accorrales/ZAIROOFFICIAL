@@ -126,3 +126,36 @@ test('evento sin compras con códigos devuelve lista vacía', async () => {
     await db.close();
   }
 });
+
+test('reassigned codes start at zero in the new event and preserve historical ranking', async () => {
+  const { db, controller } = await preparar();
+  const response = () => ({
+    code: 200,
+    status(code) { this.code = code; return this; },
+    json(body) { this.body = body; return this; }
+  });
+  try {
+    await db.exec('ALTER TABLE eventos ADD COLUMN nombre text; ALTER TABLE codigos_descuento ADD COLUMN fecha_creacion timestamp;');
+    await db.query('UPDATE codigos_descuento SET id_evento = 2 WHERE id_codigo = 20');
+    const detail = response();
+    await controller.obtenerCodigoPorId({ params: { id: 20 } }, detail);
+    assert.equal(detail.code, 200);
+    assert.equal(detail.body.usos_actuales, 0);
+    assert.equal(detail.body.total_vendido, 0);
+    const list = response();
+    await controller.listarCodigos({}, list);
+    assert.equal(list.code, 200);
+    assert.equal(list.body.find(c => c.id_codigo === 20).entradas_vendidas, 0);
+    assert.equal(list.body.find(c => c.id_codigo === 10).entradas_vendidas, 5);
+    assert.equal(list.body.find(c => c.id_codigo === 10).total_vendido, 19000);
+    const history = await consultar(controller, 1);
+    assert.equal(history.body.find(c => c.id_codigo === 20).entradas_vendidas, 1);
+    await db.exec("INSERT INTO compras_entradas VALUES (7, 2, 20, 'PAGADA', 7000, 1); INSERT INTO compra_entrada_detalles VALUES (12, 7, NULL);");
+    const after = response();
+    await controller.obtenerCodigoPorId({ params: { id: 20 } }, after);
+    assert.equal(after.body.usos_actuales, 1);
+    assert.equal(after.body.total_vendido, 7000);
+  } finally {
+    await db.close();
+  }
+});
