@@ -14,6 +14,7 @@ const USOS_VALIDOS_SQL = `
     FROM compras_entradas ce
     INNER JOIN compra_entrada_detalles d ON d.id_compra = ce.id_compra
     WHERE ce.id_codigo = c.id_codigo
+      AND (c.id_evento IS NULL OR ce.id_evento = c.id_evento)
       AND ce.estado = 'PAGADA'
       AND d.fecha_invalidacion IS NULL
   ), 0)::int
@@ -25,6 +26,7 @@ const TOTAL_VENDIDO_SQL = `
     FROM compras_entradas ce
     INNER JOIN compra_entrada_detalles d ON d.id_compra = ce.id_compra
     WHERE ce.id_codigo = c.id_codigo
+      AND (c.id_evento IS NULL OR ce.id_evento = c.id_evento)
       AND ce.estado = 'PAGADA'
       AND d.fecha_invalidacion IS NULL
   ), 0)
