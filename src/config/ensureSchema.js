@@ -56,6 +56,9 @@ const ensureSchema = async () => {
     // Eventos teaser: un evento puede mostrarse en el Home como "Próximamente"
     // sin habilitar ventas ni exponer precio, ubicación o descripción.
     await ejecutarSqlIdempotente('eventos_home_teaser.sql');
+
+    // Reto 70: códigos de descuento registrados por los propios clientes.
+    await ejecutarSqlIdempotente('campana_codigos_clientes.sql');
   } catch (error) {
     // No tumbamos el servidor si esto falla; solo lo registramos.
     console.error('ensureSchema: no se pudo verificar/actualizar el esquema:', error.message);

@@ -6,6 +6,9 @@ on:
       - 'src/controllers/codigosDescuentoController.js'
       - 'src/controllers/codigosDescuentoController.test.js'
       - 'src/routes/codigosDescuentoRoutes.js'
+      - 'src/controllers/campanaCodigosController.js'
+      - 'src/controllers/campanaCodigosController.test.js'
+      - 'src/sql/campana_codigos_clientes.sql'
       - 'package*.json'
       - '.github/workflows/ranking-check.yml'
   workflow_dispatch:
@@ -22,4 +25,5 @@ jobs:
       - run: npm ci
       - run: node --check src/controllers/codigosDescuentoController.js
       - run: node --check src/routes/codigosDescuentoRoutes.js
-      - run: node --test src/controllers/codigosDescuentoController.test.js
+      - run: node --check src/controllers/campanaCodigosController.js
+      - run: node --test src/controllers/codigosDescuentoController.test.js src/controllers/campanaCodigosController.test.js

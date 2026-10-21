@@ -5,6 +5,15 @@ const TIPOS_VALIDOS = ['PORCENTAJE', 'MONTO'];
 const normalizarCodigo = (codigo) =>
   (codigo || '').toString().trim().toUpperCase();
 
+// Convierte la fecha recibida (ISO con zona horaria desde el panel) en Date
+// para que pg la guarde y la lea con la misma zona del servidor.
+// Devuelve undefined si la fecha es inválida.
+const aFecha = (valor) => {
+  if (!valor) return null;
+  const fecha = new Date(valor);
+  return Number.isNaN(fecha.getTime()) ? undefined : fecha;
+};
+
 // Los usos de códigos se calculan desde las entradas realmente vendidas:
 // compra PAGADA + entrada no invalidada. Así no cuentan compras rechazadas,
 // pendientes ni entradas invalidadas.
@@ -255,6 +264,10 @@ const crearCodigo = async (req, res) => {
     return res.status(400).json({ error: 'El porcentaje no puede ser mayor a 100' });
   }
 
+  if (aFecha(fecha_inicio) === undefined || aFecha(fecha_fin) === undefined) {
+    return res.status(400).json({ error: 'Las fechas de vigencia no son válidas' });
+  }
+
   try {
     const result = await pool.query(
       `INSERT INTO codigos_descuento
@@ -267,8 +280,8 @@ const crearCodigo = async (req, res) => {
         tipo,
         Number(valor),
         id_evento || null,
-        fecha_inicio || null,
-        fecha_fin || null,
+        aFecha(fecha_inicio),
+        aFecha(fecha_fin),
         usos_maximos || null,
         estado === undefined ? true : estado
       ]
@@ -317,6 +330,10 @@ const actualizarCodigo = async (req, res) => {
     return res.status(400).json({ error: 'El porcentaje no puede ser mayor a 100' });
   }
 
+  if (aFecha(fecha_inicio) === undefined || aFecha(fecha_fin) === undefined) {
+    return res.status(400).json({ error: 'Las fechas de vigencia no son válidas' });
+  }
+
   try {
     const result = await pool.query(
       `UPDATE codigos_descuento
@@ -337,8 +354,8 @@ const actualizarCodigo = async (req, res) => {
         tipo,
         Number(valor),
         id_evento || null,
-        fecha_inicio || null,
-        fecha_fin || null,
+        aFecha(fecha_inicio),
+        aFecha(fecha_fin),
         usos_maximos || null,
         estado === undefined ? true : estado,
         id
