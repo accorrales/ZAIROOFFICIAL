@@ -9,10 +9,13 @@ function packageQuote(tier, people, now = new Date()) {
   return { units, subtotal: Math.round(price * units * 100) / 100 };
 }
 function validateTier(body) {
+  if (body.zona !== undefined && !['GENERAL', 'VIP'].includes(body.zona)) throw new Error('Seleccioná zona General o VIP');
+  if (body.beneficios_paquete !== undefined && (typeof body.beneficios_paquete !== 'string' || body.beneficios_paquete.length > 2000)) throw new Error('Beneficios inválidos (máximo 2000 caracteres)');
   const size = Number(body.entradas_por_paquete ?? 1);
   const stock = body.cantidad_disponible == null || body.cantidad_disponible === '' ? null : Number(body.cantidad_disponible);
   if (!Number.isInteger(size) || size < 1 || size > 10) throw new Error('Entradas por paquete debe ser un entero entre 1 y 10');
   if (stock !== null && (!Number.isInteger(stock) || stock < 0)) throw new Error('El cupo debe ser un entero mayor o igual a cero');
+  if (String(body.beneficios_paquete || '').trim() && size === 1) throw new Error('Los beneficios requieren un paquete de entradas');
   if (size > 1 && stock === null) throw new Error('Definí el límite de paquetes de la promoción');
   if (!String(body.nombre || '').trim() || !Number.isFinite(Number(body.precio)) || Number(body.precio) <= 0) throw new Error('Nombre y precio positivo son obligatorios');
   for (const date of [body.fecha_inicio, body.fecha_fin]) if (date && !Number.isFinite(new Date(date).getTime())) throw new Error('Revisá las fechas de la entrada');

@@ -25,6 +25,8 @@ const obtenerEntradasPorEvento = async (req, res) => {
         d.estado_anterior,
         d.fecha_invalidacion,
         d.fecha_ingreso,
+        c.zona,
+        c.beneficios_paquete,
         c.id_compra,
         c.correo_comprador,
         c.telefono_comprador,
@@ -89,9 +91,15 @@ const obtenerEntradasPorEvento = async (req, res) => {
       [id_evento]
     );
 
+    // Aggregate purchases separately: joining attendee rows would multiply benefits.
+    const paquetes = await pool.query(`SELECT c.id_tier, c.zona, c.beneficios_paquete,
+      SUM(c.unidades_reservadas) AS paquetes, SUM(c.cantidad) AS entradas, SUM(c.total) AS total
+      FROM compras_entradas c WHERE c.id_evento=$1 AND c.estado='PAGADA'
+      AND c.beneficios_paquete <> '' GROUP BY c.id_tier,c.zona,c.beneficios_paquete`,[id_evento]);
     const totales = resumen.rows[0];
 
     res.json({
+      paquetes: paquetes.rows,
       entradas: entradas.rows,
       totales: {
         total_entradas: Number(totales.total_validas),
@@ -223,6 +231,9 @@ const descargarReporteCsv = async (req, res) => {
         d.nombre_completo,
         c.correo_comprador,
         c.telefono_comprador,
+        c.zona,
+        c.beneficios_paquete,
+        c.id_compra,
         t.nombre   AS tier,
         c.total / NULLIF(c.cantidad, 0) AS precio,
         d.uuid_entrada,
@@ -251,6 +262,9 @@ const descargarReporteCsv = async (req, res) => {
       'Correo',
       'Telefono',
       'Tipo de entrada',
+      'Zona',
+      'Compra (beneficios compartidos por paquete)',
+      'Beneficios por paquete',
       'Precio',
       'UUID entrada',
       'Estado',
@@ -266,6 +280,9 @@ const descargarReporteCsv = async (req, res) => {
           fila.correo_comprador,
           fila.telefono_comprador,
           fila.tier,
+          fila.zona,
+          fila.id_compra,
+          fila.beneficios_paquete,
           Number(fila.precio || 0),
           fila.uuid_entrada,
           fila.estado,

@@ -52,6 +52,18 @@ test('PostgreSQL purchase lifecycle: migration, totals, inventory, rollback, QR 
   function response(){return {code:200,status(n){this.code=n;return this;},json(body){this.body=body;return this;}};}
   const people=n=>Array.from({length:n},(_,i)=>({nombre_completo:'Persona '+i,fecha_nacimiento:'2000-01-01'}));
   async function buy(tier,count,extra={}){const res=response();await controller.crearCompra({body:{id_evento:1,id_tier:tier,correo_comprador:'test@example.com',telefono_comprador:'88888888',personas:people(count),...extra}},res);return res;}
+  await db.exec("INSERT INTO eventos VALUES (2,'Otro evento','2099-10-31',true,'Otro','image'); INSERT INTO entrada_tiers (id_evento,nombre,precio,cantidad_disponible,entradas_por_paquete,zona,beneficios_paquete) VALUES (1,'VIP Red Bull',75000,2,6,'VIP','1 mesa, 1 litro Jack y 4 Red Bulls')");
+  assert.equal((await buy(4,6,{id_evento:2})).code,404);
+  assert.equal((await buy(4,5)).code,400);
+  assert.equal((await buy(4,6,{codigo_descuento:'EXTRA'})).code,400);
+  const vip=await buy(4,6);assert.equal(vip.code,201);assert.equal(Number(vip.body.compra.total),75000);assert.equal(vip.body.compra.zona,'VIP');
+  assert.equal(vip.body.compra.unidades_reservadas,1);
+  const vipConfirmed=await confirm.confirmarCompra(vip.body.compra.id_compra);
+  assert.equal(vipConfirmed.personas.length,6);assert.equal(mail[0].beneficios_paquete,'1 mesa, 1 litro Jack y 4 Red Bulls');assert.equal(mail[0].unidades_paquete,1);
+  assert.equal(new Set((await db.query('SELECT uuid_entrada FROM compra_entrada_detalles WHERE id_compra=$1',[vip.body.compra.id_compra])).rows.map(r=>r.uuid_entrada)).size,6);
+  await assert.rejects(confirm.confirmarCompra(vip.body.compra.id_compra),/ya fue confirmada/);
+  const changeZone=response();await tiers.actualizarTier({params:{id:4},body:{nombre:'VIP',precio:75000,entradas_por_paquete:6,cantidad_disponible:1,estado:true,zona:'GENERAL'}},changeZone);assert.equal(changeZone.code,409);
+  await db.exec('DELETE FROM compra_entrada_detalles; DELETE FROM compras_entradas');mail.length=0;wallet.length=0;
   const publicRes=response();await tiers.obtenerTiersPorEvento({params:{id_evento:1}},publicRes);
   assert.equal(publicRes.code,200); assert.equal(publicRes.body.find(t=>t.id_tier===1).entradas_por_paquete,4);
   assert.ok(publicRes.body.every(t=>!Object.hasOwn(t,'cantidad_disponible')));

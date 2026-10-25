@@ -45,6 +45,8 @@ const obtenerEntradaPorUuid = async (uuid) => {
       d.cortesia_tiquete_entregado_en,
       c.correo_comprador,
       c.telefono_comprador,
+      c.zona,
+      c.beneficios_paquete,
       c.total,
       c.estado AS estado_compra,
       e.id_evento,
@@ -209,9 +211,11 @@ exports.crearCompra = async (req, res) => {
         id_codigo,
         bebida_cortesia,
         unidades_reservadas,
-        cupo_reservado
+        cupo_reservado,
+        zona,
+        beneficios_paquete
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
       RETURNING *
       `,
       [
@@ -224,7 +228,7 @@ exports.crearCompra = async (req, res) => {
         descuento,
         total,
         idCodigo,
-        bebidaCortesia, quote.units, tier.cantidad_disponible != null
+        bebidaCortesia, quote.units, tier.cantidad_disponible != null, tier.zona, tier.beneficios_paquete
       ]
     );
 
@@ -268,10 +272,13 @@ exports.listarPendientes = async (req, res) => {
         c.id_compra,
         c.id_evento,
         e.nombre AS evento,
+        c.zona,
         t.nombre AS entrada,
         c.correo_comprador,
         c.telefono_comprador,
         c.cantidad,
+        c.zona,
+        c.beneficios_paquete,
         c.total,
         c.bebida_cortesia,
         c.estado,
@@ -456,6 +463,8 @@ exports.validarQr = async (req, res) => {
       WHERE d.id_compra = c.id_compra
         AND d.uuid_entrada = $1
         AND d.estado = 'CONFIRMADA'
+        AND c.estado = 'PAGADA'
+        AND d.fecha_invalidacion IS NULL
       RETURNING
         d.id_detalle,
         d.nombre_completo,
@@ -466,6 +475,9 @@ exports.validarQr = async (req, res) => {
         d.cortesia_tiquete_entregado,
         d.cortesia_tiquete_entregado_en,
         c.id_compra,
+        c.zona,
+        c.beneficios_paquete,
+        c.unidades_reservadas,
         e.nombre AS evento,
         e.fecha AS fecha_evento,
         t.nombre AS entrada

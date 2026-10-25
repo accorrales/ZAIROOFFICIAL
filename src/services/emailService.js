@@ -43,6 +43,9 @@ exports.enviarEntradas = async ({
   correo,
   evento,
   entrada,
+  beneficios_paquete,
+  unidades_paquete,
+  id_compra,
   personas
 }) => {
   const esInfamous = /\binfamous\b/i.test(String(evento || ''));
@@ -310,7 +313,7 @@ exports.enviarEntradas = async ({
               </p>
 
               <p style="margin:10px 0; color:${theme.text};">
-                <strong style="color:#ffffff;">Entrada:</strong> ${escapeHtml(entrada)}
+                <strong style="color:#ffffff;">Entrada:</strong> ${escapeHtml(entrada)}${beneficios_paquete ? `<br>Promoción comprada · Compra de grupo #${escapeHtml(id_compra)} · ${Number(unidades_paquete)} paquete(s). Beneficios por paquete: ${escapeHtml(beneficios_paquete)}. Se entregan una vez por paquete, no por QR.` : ''}
               </p>
 
               <p style="margin:10px 0; color:${theme.text};">
