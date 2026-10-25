@@ -130,7 +130,7 @@ const confirmarCompra = async (idCompra, opts = {}) => {
       fecha_evento: compra.fecha_evento,
       ubicacion_evento: compra.ubicacion_evento,
       imagen_evento: compra.imagen_evento,
-      entrada: compra.entrada,
+      entrada: `${compra.entrada} · ${compra.zona || 'GENERAL'}`,
       precio: Number(compra.total) / Number(compra.cantidad),
       estado: 'CONFIRMADA'
     };
@@ -178,7 +178,10 @@ const confirmarCompra = async (idCompra, opts = {}) => {
   await emailService.enviarEntradas({
     correo: compra.correo_comprador,
     evento: compra.evento,
-    entrada: compra.entrada,
+    entrada: `${compra.entrada} · ${compra.zona || 'GENERAL'}`,
+    id_compra: compra.id_compra,
+    beneficios_paquete: compra.beneficios_paquete,
+    unidades_paquete: compra.unidades_reservadas,
     personas: personasConQr
   });
   } catch(error) { correoEnviado = false; console.error('Error enviando entradas confirmadas', error); }

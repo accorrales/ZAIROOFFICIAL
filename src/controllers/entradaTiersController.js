@@ -24,6 +24,8 @@ const obtenerTiersPorEvento = async (req, res) => {
         precio,
         cantidad_disponible,
         entradas_por_paquete,
+        zona,
+        beneficios_paquete,
         estado,
         to_char(fecha_inicio AT TIME ZONE 'America/Costa_Rica', 'YYYY-MM-DD"T"HH24:MI') AS fecha_inicio,
         to_char(fecha_fin    AT TIME ZONE 'America/Costa_Rica', 'YYYY-MM-DD"T"HH24:MI') AS fecha_fin,
@@ -68,12 +70,12 @@ const crearTier = async (req, res) => {
   try {
     const result = await pool.query(
       `INSERT INTO entrada_tiers
-       (id_evento, nombre, descripcion, precio, fecha_inicio, fecha_fin, cantidad_disponible, entradas_por_paquete, estado)
+       (id_evento, nombre, descripcion, precio, fecha_inicio, fecha_fin, cantidad_disponible, entradas_por_paquete, estado, zona, beneficios_paquete)
        VALUES (
          $1,$2,$3,$4,
          ($5)::timestamp AT TIME ZONE 'America/Costa_Rica',
          ($6)::timestamp AT TIME ZONE 'America/Costa_Rica',
-         $7,$8,$9
+         $7,$8,$9,$10,$11
        )
        RETURNING *`,
       [
@@ -83,7 +85,7 @@ const crearTier = async (req, res) => {
         precio,
         fecha_inicio || null,
         fecha_fin || null,
-        config.stock, config.size, req.body.estado !== false
+        config.stock, config.size, req.body.estado !== false, req.body.zona || 'GENERAL', (req.body.beneficios_paquete || '').trim()
       ]
     );
 
@@ -119,9 +121,11 @@ const actualizarTier = async (req, res) => {
            fecha_fin = ($5)::timestamp AT TIME ZONE 'America/Costa_Rica',
            cantidad_disponible = $6,
            estado = $7,
-           entradas_por_paquete = $9
+           entradas_por_paquete = $9,
+           zona = COALESCE($10, zona),
+           beneficios_paquete = COALESCE($11, beneficios_paquete)
        WHERE id_tier = $8
-         AND (entradas_por_paquete = $9 OR NOT EXISTS (SELECT 1 FROM compras_entradas WHERE id_tier = $8))
+         AND ((entradas_por_paquete = $9 AND zona = COALESCE($10, zona) AND beneficios_paquete = COALESCE($11, beneficios_paquete)) OR NOT EXISTS (SELECT 1 FROM compras_entradas WHERE id_tier = $8))
        RETURNING *`,
       [
         nombre,
@@ -131,7 +135,7 @@ const actualizarTier = async (req, res) => {
         fecha_fin || null,
         config.stock,
         estado,
-        id, config.size
+        id, config.size, req.body.zona ?? null, req.body.beneficios_paquete?.trim() ?? null
       ]
     );
 
