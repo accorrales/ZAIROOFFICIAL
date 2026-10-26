@@ -15,6 +15,6 @@ BEGIN
     INSERT INTO entrada_tiers
       (id_evento,nombre,descripcion,precio,entradas_por_paquete,zona,beneficios_paquete,cantidad_disponible,estado)
     VALUES (event_id,'INFAMOUS · Mesa Red Bull · 6 entradas VIP','EL LLAMADO DE LAS ALMAS · 31 octubre 2026',
-      75000,6,'VIP','1 mesa Red Bull tipo hotel, 1 litro de Jägermeister y 4 Red Bulls',5,false);
+      75000,6,'VIP','1 mesa Red Bull tipo cóctel, 1 litro de Jägermeister y 4 Red Bulls',5,false);
   END IF;
 END $$;
