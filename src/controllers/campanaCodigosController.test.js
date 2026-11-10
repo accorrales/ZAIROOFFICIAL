@@ -10,7 +10,12 @@ const vm = require('node:vm');
 const { PGlite } = require('@electric-sql/pglite');
 
 // PostgreSQL real en memoria con el esquema de códigos + la migración del Reto 70.
-async function preparar() {
+async function preparar(ahoraIso = '2026-10-22T12:00:00-06:00') {
+  const ahora = new Date(ahoraIso).getTime();
+  class FechaFija extends Date {
+    constructor(...args) { super(...(args.length ? args : [ahora])); }
+    static now() { return ahora; }
+  }
   const db = new PGlite();
   await db.exec(`
     CREATE TABLE eventos (id_evento integer PRIMARY KEY);
@@ -55,7 +60,7 @@ async function preparar() {
       module,
       exports: module.exports,
       console: { ...console, error: () => {} },
-      Date,
+      Date: FechaFija,
       require: (nombre) => {
         if (nombre === '../config/database') return db;
         throw new Error('Dependencia inesperada ' + nombre);
@@ -267,4 +272,15 @@ test('el código pendiente no sirve; aprobado aplica 10% solo dentro de la vigen
   } finally {
     await db.close();
   }
+});
+
+test('la campaña cerrada rechaza registros sin escribir datos', async () => {
+  const { db, controller } = await preparar('2026-10-29T00:00:00-06:00');
+  try {
+    const res = await registrar(controller, persona);
+    assert.equal(res.code, 400);
+    assert.match(res.body.error, /ya cerraron/);
+    const { rows } = await db.query("SELECT COUNT(*)::int AS total FROM codigos_descuento WHERE codigo = 'ANACR'");
+    assert.equal(rows[0].total, 0);
+  } finally { await db.close(); }
 });
