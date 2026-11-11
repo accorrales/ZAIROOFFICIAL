@@ -63,6 +63,17 @@ test('accounting can use financial APIs while unrelated operations remain denied
       const token=jwt.sign({rol:'admin'},process.env.JWT_SECRET,{expiresIn:'1h'});
       assert.equal((await fetch(origin+url,{method,headers:{Authorization:`Bearer ${token}`}})).status,200);
     }
+    // Existing role boundaries: styling must not broaden these permissions.
+    const roleMatrix={
+      admin:{'/api/empleados':200,'/api/planillas':200,'/api/usuarios':200,'/api/eventos/admin/todos':200,'/api/dashboard-entradas/evento/1':200},
+      rrhh:{'/api/empleados':200,'/api/planillas':200,'/api/usuarios':403,'/api/eventos/admin/todos':403,'/api/dashboard-entradas/evento/1':403},
+      visor:{'/api/empleados':403,'/api/planillas':403,'/api/usuarios':403,'/api/eventos/admin/todos':403,'/api/dashboard-entradas/evento/1':403},
+      entrada:{'/api/empleados':403,'/api/planillas':403,'/api/usuarios':403,'/api/eventos/admin/todos':403,'/api/dashboard-entradas/evento/1':403}
+    };
+    for(const [rol,paths] of Object.entries(roleMatrix))for(const [url,status] of Object.entries(paths)){
+      const token=jwt.sign({rol},process.env.JWT_SECRET,{expiresIn:'1h'});
+      assert.equal((await fetch(origin+url,{headers:{Authorization:`Bearer ${token}`}})).status,status,`${rol} ${url}`);
+    }
     const denied = await fetch(origin+'/api/dashboard-entradas/evento/1');
     assert.equal(denied.status,401);
     const token = jwt.sign({rol:'admin'},process.env.JWT_SECRET,{expiresIn:'1h'});
