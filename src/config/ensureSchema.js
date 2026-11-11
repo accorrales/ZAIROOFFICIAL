@@ -26,6 +26,7 @@ const ejecutarSqlIdempotente = async (nombreArchivo) => {
 
 const ensureSchema = async () => {
   await pool.query(fs.readFileSync(path.join(__dirname, '..', 'sql', 'eventos_editoriales.sql'), 'utf8'));
+  await require('./legacyEventContent').migrateLegacyEventContent(pool);
   // Required for package pricing: fail closed if this migration cannot run.
   await pool.query(fs.readFileSync(path.join(__dirname, '..', 'sql', 'paquetes_promocionales.sql'), 'utf8'));
   try {

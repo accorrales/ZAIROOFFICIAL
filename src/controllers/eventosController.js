@@ -3,7 +3,8 @@ const pool = require('../config/database');
 const { publicEvent } = require('../utils/eventContent');
 const obtenerEventos = async (req, res) => {
   try {
-    const {rows}=await pool.query("SELECT * FROM eventos WHERE publicacion <> 'BORRADOR' AND mostrar_en_home=true ORDER BY destacado DESC, fecha");
+    const {rows}=await pool.query("SELECT id_evento,nombre,descripcion,fecha,ubicacion,precio,imagen,estado,publicacion,ventas_abiertas,mostrar_en_home,destacado,contenido_publicado FROM eventos WHERE publicacion <> 'BORRADOR' AND mostrar_en_home=true ORDER BY destacado DESC, fecha, id_evento");
+    res.set('Cache-Control','no-store');
     res.json(rows.map(row=>publicEvent(row)));
   } catch { res.status(500).json({error:'Error al obtener eventos'}); }
 };
@@ -192,6 +193,7 @@ const obtenerEventoPorId = async (req,res) => {
  try {
   const row=(await pool.query('SELECT * FROM eventos WHERE id_evento=$1',[req.params.id])).rows[0];
   if(!row || row.publicacion!=='PUBLICADO') return res.status(404).json({error:'Evento no disponible'});
+  res.set('Cache-Control','no-store');
   res.json(publicEvent(row,true));
  }catch {res.status(500).json({error:'Error al obtener evento'});}
 };

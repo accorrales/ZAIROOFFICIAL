@@ -10,7 +10,7 @@ const obtenerTiersPorEvento = async (req, res) => {
       [id_evento]
     );
 
-    if (eventoResult.rows.length === 0 || (!req.user && (eventoResult.rows[0].estado !== true || eventoResult.rows[0].publicacion !== 'PUBLICADO' || !eventoResult.rows[0].ventas_abiertas))) {
+    if (eventoResult.rows.length === 0 || (!req.user && eventoResult.rows[0].publicacion !== 'PUBLICADO')) {
       return res.status(404).json({ error: 'Evento no disponible' });
     }
 
@@ -43,7 +43,9 @@ const obtenerTiersPorEvento = async (req, res) => {
       [id_evento]
     );
 
-    res.json(result.rows.map(row => {
+    res.set('Cache-Control','no-store');
+    const rows=req.user ? result.rows : result.rows.filter(row=>row.estado!==false);
+    res.json(rows.map(row => {
       if (req.user?.rol?.trim().toLowerCase() === 'admin') return row;
       const { cantidad_disponible, ...publicTier } = row;
       return publicTier;

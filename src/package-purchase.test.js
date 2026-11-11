@@ -51,7 +51,7 @@ test('PostgreSQL purchase lifecycle: migration, totals, inventory, rollback, QR 
   const tiers=require('./controllers/entradaTiersController');
   const sales=require('./controllers/entradasConfirmadasController');
   const confirm=require('./services/confirmarCompraService');
-  function response(){return {code:200,status(n){this.code=n;return this;},json(body){this.body=body;return this;}};}
+  function response(){return {code:200,set(){return this;},status(n){this.code=n;return this;},json(body){this.body=body;return this;}};}
   const people=n=>Array.from({length:n},(_,i)=>({nombre_completo:'Persona '+i,fecha_nacimiento:'2000-01-01'}));
   async function buy(tier,count,extra={}){const res=response();await controller.crearCompra({body:{id_evento:1,id_tier:tier,correo_comprador:'test@example.com',telefono_comprador:'88888888',personas:people(count),...extra}},res);return res;}
   await db.exec("INSERT INTO eventos (id_evento,nombre,fecha,estado,ubicacion,imagen) VALUES (2,'Otro evento','2099-10-31',true,'Otro','image'); INSERT INTO entrada_tiers (id_evento,nombre,precio,cantidad_disponible,entradas_por_paquete,zona,beneficios_paquete) VALUES (1,'VIP Red Bull',75000,2,6,'VIP','1 mesa, 1 litro Jack y 4 Red Bulls')");
