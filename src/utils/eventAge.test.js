@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const fs = require('node:fs');
 const { ageAtEvent } = require('./eventAge');
 
-const event = { id_evento: 71, fecha: '2026-11-01T02:00:00Z', estado: true };
+const event = { id_evento: 71, fecha: '2026-11-01T02:00:00Z', estado: true, publicacion: 'PUBLICADO', ventas_abiertas: true };
 
 test('age uses the Costa Rica calendar, including the sixteenth birthday', () => {
   assert.equal(ageAtEvent('2010-10-31', event.fecha), 16);

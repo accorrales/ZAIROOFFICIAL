@@ -69,6 +69,11 @@ const sanitizarRespuestaPublica = (req, res, next) => {
   next();
 };
 
+const editorial = require('../controllers/eventContentController');
+router.get('/:id/contenido', verificarToken, requiereAdmin, editorial.obtener);
+router.put('/:id/contenido', verificarToken, requiereAdmin, editorial.guardar);
+router.post('/:id/publicacion', verificarToken, requiereAdmin, editorial.publicar);
+
 // Público: listado y detalle, siempre sanitizados antes de responder.
 router.get('/', sanitizarRespuestaPublica, obtenerEventos);
 router.get('/:id', sanitizarRespuestaPublica, obtenerEventoPorId);

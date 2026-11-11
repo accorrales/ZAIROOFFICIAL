@@ -47,6 +47,9 @@ test('accounting can use financial APIs while unrelated operations remain denied
     ['GET','/api/dashboard-entradas/evento/1/reporte.csv',200],
     ['PATCH','/api/dashboard-entradas/detalle/1/invalidar',403],
     ['GET','/api/usuarios',403], ['POST','/api/eventos',403],
+    ['GET','/api/eventos/1/contenido',403],
+    ['PUT','/api/eventos/1/contenido',403],
+    ['POST','/api/eventos/1/publicacion',403],
     ['POST','/api/compras-entradas/validar-qr',403]
   ];
   try {
@@ -54,6 +57,11 @@ test('accounting can use financial APIs while unrelated operations remain denied
       const token = jwt.sign({rol:'contabilidad'},process.env.JWT_SECRET,{expiresIn:'1h'});
       const response = await fetch(origin+url,{method,headers:{Authorization:`Bearer ${token}`}});
       assert.equal(response.status,status,`${method} ${url}`);
+    }
+    for (const [method,url] of [['GET','/api/eventos/1/contenido'],['PUT','/api/eventos/1/contenido'],['POST','/api/eventos/1/publicacion']]) {
+      assert.equal((await fetch(origin+url,{method})).status,401);
+      const token=jwt.sign({rol:'admin'},process.env.JWT_SECRET,{expiresIn:'1h'});
+      assert.equal((await fetch(origin+url,{method,headers:{Authorization:`Bearer ${token}`}})).status,200);
     }
     const denied = await fetch(origin+'/api/dashboard-entradas/evento/1');
     assert.equal(denied.status,401);

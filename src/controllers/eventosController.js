@@ -1,47 +1,11 @@
 const pool = require('../config/database');
 
-// Home público: incluye eventos con venta activa y eventos publicados como teaser.
-// Los teasers no exponen descripción, ubicación ni precio.
+const { publicEvent } = require('../utils/eventContent');
 const obtenerEventos = async (req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT
-         id_evento,
-         nombre,
-         descripcion,
-         fecha,
-         ubicacion,
-         precio,
-         imagen,
-         estado,
-         mostrar_en_home
-       FROM eventos
-       WHERE estado = true
-          OR mostrar_en_home = true
-       ORDER BY fecha`
-    );
-
-    const eventosPublicos = result.rows.map((evento) => {
-      if (evento.estado) {
-        return evento;
-      }
-
-      return {
-        id_evento: evento.id_evento,
-        nombre: evento.nombre,
-        fecha: evento.fecha,
-        imagen: evento.imagen,
-        estado: false,
-        mostrar_en_home: true,
-        modo: 'PROXIMAMENTE'
-      };
-    });
-
-    res.json(eventosPublicos);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Error al obtener eventos' });
-  }
+    const {rows}=await pool.query("SELECT * FROM eventos WHERE publicacion <> 'BORRADOR' AND mostrar_en_home=true ORDER BY destacado DESC, fecha");
+    res.json(rows.map(row=>publicEvent(row)));
+  } catch { res.status(500).json({error:'Error al obtener eventos'}); }
 };
 
 // Obtener todos los eventos para admin
@@ -53,7 +17,11 @@ const obtenerTodosEventos = async (req, res) => {
        ORDER BY fecha DESC`
     );
 
-    res.json(result.rows);
+    // Accounting keeps its existing event catalogue access, without editorial drafts
+    // or private location settings. Only administrators receive the complete row.
+    if (req.user?.rol?.trim().toLowerCase() === 'admin') return res.json(result.rows);
+    const fields=['id_evento','nombre','fecha','precio','imagen','estado','mostrar_en_home','publicacion','ventas_abiertas','destacado'];
+    res.json(result.rows.map(row=>Object.fromEntries(fields.map(key=>[key,row[key]]))));
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al obtener todos los eventos' });
@@ -69,10 +37,11 @@ const crearEvento = async (req, res) => {
     ubicacion,
     precio,
     imagen,
-    estado = true,
+    estado = false,
     mostrar_en_home = false
   } = req.body;
 
+  if(typeof nombre!=='string'||!nombre.trim()||nombre.length>180||!Number.isFinite(Date.parse(fecha)))return res.status(400).json({error:'Nombre y fecha válidos son obligatorios'});
   try {
     const result = await pool.query(
       `INSERT INTO eventos
@@ -86,8 +55,8 @@ const crearEvento = async (req, res) => {
         ubicacion,
         precio,
         imagen,
-        estado !== false,
-        mostrar_en_home === true
+        false,
+        false
       ]
     );
 
@@ -98,55 +67,16 @@ const crearEvento = async (req, res) => {
   }
 };
 
-// Actualizar evento
-const actualizarEvento = async (req, res) => {
-  const { id } = req.params;
-  const {
-    nombre,
-    descripcion,
-    fecha,
-    ubicacion,
-    precio,
-    imagen,
-    estado,
-    mostrar_en_home = false
-  } = req.body;
-
-  try {
-    const result = await pool.query(
-      `UPDATE eventos
-       SET nombre = $1,
-           descripcion = $2,
-           fecha = $3,
-           ubicacion = $4,
-           precio = $5,
-           imagen = $6,
-           estado = $7,
-           mostrar_en_home = $8
-       WHERE id_evento = $9
-       RETURNING *`,
-      [
-        nombre,
-        descripcion,
-        fecha,
-        ubicacion,
-        precio,
-        imagen,
-        estado !== false,
-        mostrar_en_home === true,
-        id
-      ]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Evento no encontrado' });
-    }
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Error al actualizar evento' });
-  }
+// Legacy metadata editor saves only draft metadata after the editorial migration.
+const actualizarEvento = async (req,res) => {
+ const fields=['nombre','descripcion','fecha','ubicacion','precio','imagen'];
+ const draft=Object.fromEntries(fields.filter(k=>req.body[k]!==undefined).map(k=>[k,req.body[k]]));
+ if(typeof draft.nombre!=='string'||!draft.nombre.trim()||!Number.isFinite(Date.parse(draft.fecha)))return res.status(400).json({error:'Nombre y fecha válidos son obligatorios'});
+ try {
+  const result=await pool.query("UPDATE eventos SET contenido_borrador=contenido_borrador || $1::jsonb, revision_editorial=revision_editorial+1 WHERE id_evento=$2 RETURNING *",[JSON.stringify(draft),req.params.id]);
+  if(!result.rows.length)return res.status(404).json({error:'Evento no encontrado'});
+  res.json(result.rows[0]);
+ }catch {res.status(500).json({error:'Error al guardar borrador'});}
 };
 
 // Desactivar evento
@@ -156,7 +86,7 @@ const desactivarEvento = async (req, res) => {
   try {
     const result = await pool.query(
       `UPDATE eventos
-       SET estado = false
+       SET estado = false, ventas_abiertas = false, revision_editorial=revision_editorial+1
        WHERE id_evento = $1
        RETURNING *`,
       [id]
@@ -183,8 +113,8 @@ const reactivarEvento = async (req, res) => {
   try {
     const result = await pool.query(
       `UPDATE eventos
-       SET estado = true
-       WHERE id_evento = $1
+       SET estado = true, ventas_abiertas = true, revision_editorial=revision_editorial+1
+       WHERE id_evento = $1 AND publicacion='PUBLICADO'
        RETURNING *`,
       [id]
     );
@@ -258,43 +188,12 @@ const eliminarEvento = async (req, res) => {
   }
 };
 
-// La página de detalle solo abre cuando el evento está activo.
-// Un evento inactivo puede aparecer en el Home como teaser, sin permitir acceso.
-const obtenerEventoPorId = async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const result = await pool.query(
-      `SELECT *
-       FROM eventos
-       WHERE id_evento = $1
-       LIMIT 1`,
-      [id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Evento no encontrado' });
-    }
-
-    const evento = { ...result.rows[0] };
-
-    if (!evento.estado) {
-      return res.status(404).json({ error: 'Evento no disponible' });
-    }
-
-    if (!evento.ubicacion_visible_publicamente) {
-      delete evento.ubicacion_secreta_nombre;
-      delete evento.ubicacion_secreta_direccion;
-      delete evento.ubicacion_secreta_google_maps_url;
-      delete evento.ubicacion_secreta_waze_url;
-      delete evento.ubicacion_envio_programado_at;
-    }
-
-    res.json(evento);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Error al obtener evento' });
-  }
+const obtenerEventoPorId = async (req,res) => {
+ try {
+  const row=(await pool.query('SELECT * FROM eventos WHERE id_evento=$1',[req.params.id])).rows[0];
+  if(!row || row.publicacion!=='PUBLICADO') return res.status(404).json({error:'Evento no disponible'});
+  res.json(publicEvent(row,true));
+ }catch {res.status(500).json({error:'Error al obtener evento'});}
 };
 
 module.exports = {

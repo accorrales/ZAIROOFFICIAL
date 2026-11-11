@@ -120,7 +120,7 @@ exports.crearCompra = async (req, res) => {
 
     const evento = eventoResult.rows[0];
 
-    if (evento.estado !== true) {
+    if (evento.estado !== true || evento.publicacion !== 'PUBLICADO' || evento.ventas_abiertas !== true) {
       return res.status(403).json({
         message: 'Las entradas para este evento todavía no están disponibles'
       });
@@ -163,6 +163,13 @@ exports.crearCompra = async (req, res) => {
 
     client = await pool.connect();
     await client.query('BEGIN');
+    const ventaActual=(await client.query('SELECT estado, publicacion, ventas_abiertas, fecha FROM eventos WHERE id_evento=$1 FOR SHARE',[id_evento])).rows[0];
+    if(!ventaActual || !ventaActual.estado || ventaActual.publicacion!=='PUBLICADO' || !ventaActual.ventas_abiertas) {
+      const error=new Error('Las ventas para este evento están cerradas');error.statusCode=403;throw error;
+    }
+    if(new Date(ventaActual.fecha).getTime() !== fechaEvento.getTime()) {
+      const error=new Error('La fecha del evento cambió. Reintentá la compra');error.statusCode=409;throw error;
+    }
     const tierResult = await client.query(
       `SELECT * FROM entrada_tiers WHERE id_tier = $1 AND id_evento = $2 FOR UPDATE`,
       [id_tier, id_evento]

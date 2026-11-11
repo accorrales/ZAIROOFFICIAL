@@ -22,14 +22,16 @@ test('PostgreSQL purchase lifecycle: migration, totals, inventory, rollback, QR 
   const { PGlite } = await import('@electric-sql/pglite');
   const db = new PGlite();
   await db.exec(`
-    CREATE TABLE eventos (id_evento INT PRIMARY KEY, nombre TEXT, fecha TIMESTAMPTZ, estado BOOLEAN, ubicacion TEXT, imagen TEXT);
+    CREATE TABLE eventos (id_evento INT PRIMARY KEY, nombre TEXT, fecha TIMESTAMPTZ, estado BOOLEAN, ubicacion TEXT, imagen TEXT, descripcion TEXT, precio NUMERIC DEFAULT 0, mostrar_en_home BOOLEAN DEFAULT false);
     CREATE TABLE entrada_tiers (id_tier SERIAL PRIMARY KEY, id_evento INT REFERENCES eventos, nombre TEXT, descripcion TEXT, precio NUMERIC, cantidad_disponible INT, estado BOOLEAN DEFAULT true, fecha_inicio TIMESTAMPTZ, fecha_fin TIMESTAMPTZ);
     CREATE TABLE compras_entradas (id_compra SERIAL PRIMARY KEY, id_evento INT REFERENCES eventos, id_tier INT REFERENCES entrada_tiers, correo_comprador TEXT, telefono_comprador TEXT, cantidad INT, subtotal NUMERIC, descuento NUMERIC, total NUMERIC, id_codigo INT, bebida_cortesia TEXT, estado TEXT DEFAULT 'PENDIENTE', fecha_creacion TIMESTAMPTZ DEFAULT NOW());
     CREATE TABLE compra_entrada_detalles (id_detalle SERIAL PRIMARY KEY, id_compra INT REFERENCES compras_entradas, nombre_completo TEXT, fecha_nacimiento DATE, bebida_cortesia TEXT, uuid_entrada TEXT, qr_data TEXT, estado TEXT, fecha_invalidacion TIMESTAMPTZ, estado_anterior TEXT, fecha_ingreso TIMESTAMPTZ);
   `);
   const sql=fs.readFileSync(require.resolve('./sql/paquetes_promocionales.sql'),'utf8');
   await db.exec(sql); await db.exec(sql);
-  await db.exec(`INSERT INTO eventos VALUES (1,'INFAMOUS','2099-10-31',true,'Venue','image'); INSERT INTO entrada_tiers (id_evento,nombre,precio,cantidad_disponible,entradas_por_paquete) VALUES (1,'Promo General 4',20000,2,4), (1,'Individual',7000,10,1), (1,'Doble',12000,3,2);`);
+  await db.exec(`INSERT INTO eventos (id_evento,nombre,fecha,estado,ubicacion,imagen) VALUES (1,'INFAMOUS','2099-10-31',true,'Venue','image'); INSERT INTO entrada_tiers (id_evento,nombre,precio,cantidad_disponible,entradas_por_paquete) VALUES (1,'Promo General 4',20000,2,4), (1,'Individual',7000,10,1), (1,'Doble',12000,3,2);`);
+  const editorial=fs.readFileSync(require.resolve('./sql/eventos_editoriales.sql'),'utf8');
+  await db.exec(editorial); await db.exec(editorial);
   let queue=Promise.resolve(), failDetails=false;
   const queries=[];
   const pool={
@@ -52,7 +54,8 @@ test('PostgreSQL purchase lifecycle: migration, totals, inventory, rollback, QR 
   function response(){return {code:200,status(n){this.code=n;return this;},json(body){this.body=body;return this;}};}
   const people=n=>Array.from({length:n},(_,i)=>({nombre_completo:'Persona '+i,fecha_nacimiento:'2000-01-01'}));
   async function buy(tier,count,extra={}){const res=response();await controller.crearCompra({body:{id_evento:1,id_tier:tier,correo_comprador:'test@example.com',telefono_comprador:'88888888',personas:people(count),...extra}},res);return res;}
-  await db.exec("INSERT INTO eventos VALUES (2,'Otro evento','2099-10-31',true,'Otro','image'); INSERT INTO entrada_tiers (id_evento,nombre,precio,cantidad_disponible,entradas_por_paquete,zona,beneficios_paquete) VALUES (1,'VIP Red Bull',75000,2,6,'VIP','1 mesa, 1 litro Jack y 4 Red Bulls')");
+  await db.exec("INSERT INTO eventos (id_evento,nombre,fecha,estado,ubicacion,imagen) VALUES (2,'Otro evento','2099-10-31',true,'Otro','image'); INSERT INTO entrada_tiers (id_evento,nombre,precio,cantidad_disponible,entradas_por_paquete,zona,beneficios_paquete) VALUES (1,'VIP Red Bull',75000,2,6,'VIP','1 mesa, 1 litro Jack y 4 Red Bulls')");
+  await db.exec("UPDATE eventos SET publicacion='PUBLICADO', ventas_abiertas=true WHERE id_evento=2");
   assert.equal((await buy(4,6,{id_evento:2})).code,404);
   assert.equal((await buy(4,5)).code,400);
   assert.equal((await buy(4,6,{codigo_descuento:'EXTRA'})).code,400);
