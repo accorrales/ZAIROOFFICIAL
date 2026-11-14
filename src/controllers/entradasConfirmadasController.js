@@ -265,7 +265,7 @@ const descargarReporteCsv = async (req, res) => {
       'Zona',
       'Compra (beneficios compartidos por paquete)',
       'Beneficios por paquete',
-      'Precio',
+      'Precio (CRC)',
       'UUID entrada',
       'Estado',
       'Fecha de compra'

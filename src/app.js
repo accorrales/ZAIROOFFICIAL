@@ -99,7 +99,7 @@ app.use(
   novedadesRoutes
 );
 app.use('/api/auditoria', verificarToken, requiereAdmin, auditoriaRoutes);
-app.use('/api/dashboard', verificarToken, dashboardRoutes);
+app.use('/api/dashboard', verificarToken, requiereRoles('admin', 'rrhh', 'contabilidad'), dashboardRoutes);
 app.use('/api/usuarios', verificarToken, requiereAdmin, usuariosRoutes);
 app.use('/api/entradas', verificarToken, requiereAdmin, entradasRoutes);
 app.use(
