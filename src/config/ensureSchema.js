@@ -30,6 +30,7 @@ const ensureSchema = async () => {
   // Required for package pricing: fail closed if this migration cannot run.
   await pool.query(fs.readFileSync(path.join(__dirname, '..', 'sql', 'paquetes_promocionales.sql'), 'utf8'));
   await pool.query(fs.readFileSync(path.join(__dirname, '..', 'sql', 'operacion_paquetes.sql'), 'utf8'));
+  await pool.query(fs.readFileSync(path.join(__dirname, '..', 'sql', 'operacion_auditoria_nombres.sql'), 'utf8'));
   try {
     await pool.query(`
       ALTER TABLE compra_entrada_detalles

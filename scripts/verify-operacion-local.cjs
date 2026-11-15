@@ -37,8 +37,15 @@ const people = n => Array.from({ length: n }, (_, i) => ({ nombre_completo: `Int
     const general = await api('/entrada-tiers', { method: 'POST', body: { id_evento: event, nombre: 'General ficticio', precio: 7000, cantidad_disponible: 50, entradas_por_paquete: 1, zona: 'GENERAL', estado: true }, status: 201 });
     f.generalTier = general.id_tier;
     save();
-    async function buy(tier, n, paid = true) { const r = await api('/compras-entradas', { role: 'public', method: 'POST', body: { id_evento: event, id_tier: tier, correo_comprador: 'ficticio@example.invalid', telefono_comprador: '00000000', personas: people(n) }, status: 201 }); const id = r.compra.id_compra; f.purchases.push(id); save(); if (paid)
-        await api(`/compras-entradas/${id}/confirmar`, { method: 'PATCH', body: {} }); return { id, entries: (await pool.query('SELECT id_detalle,uuid_entrada,id_paquete FROM compra_entrada_detalles WHERE id_compra=$1 ORDER BY id_detalle', [id])).rows }; }
+    async function buy(tier, n, paid = true) {
+        const r = await api('/compras-entradas', { role: 'public', method: 'POST', body: { id_evento: event, id_tier: tier, correo_comprador: 'ficticio@example.invalid', telefono_comprador: '00000000', personas: people(n) }, status: 201 });
+        const id = r.compra.id_compra;
+        f.purchases.push(id);
+        save();
+        if (paid)
+            await api(`/compras-entradas/${id}/confirmar`, { method: 'PATCH', body: {} });
+        return { id, entries: (await pool.query('SELECT id_detalle,uuid_entrada,id_paquete FROM compra_entrada_detalles WHERE id_compra=$1 ORDER BY id_detalle', [id])).rows };
+    }
     f.main = await buy(f.vipTier, 6);
     f.double = await buy(f.vipTier, 12);
     f.visual = await buy(f.vipTier, 6);
@@ -124,6 +131,7 @@ const people = n => Array.from({ length: n }, (_, i) => ({ nombre_completo: `Int
     for (const role of ['admin', 'entrada', 'contabilidad', 'rrhh', 'visor']) {
         const allowed = ['admin', 'entrada'].includes(role);
         await api('/operacion/recepcion?id_evento=' + event, { role, status: allowed ? 200 : 403 });
+        await api('/operacion/mesas?id_evento=' + event, { role, status: allowed ? 200 : 403 });
         await api('/operacion/paquetes/' + g1 + '?id_evento=' + event, { role, status: allowed ? 200 : 403 });
         if (role !== 'admin') {
             await api('/operacion/mesas', { role, method: 'POST', body: {}, status: 403 });
@@ -152,6 +160,16 @@ const people = n => Array.from({ length: n }, (_, i) => ({ nombre_completo: `Int
     const snapshot = await api('/operacion/paquetes/' + g1 + '?id_evento=' + event, { role: 'entrada' });
     assert.equal(snapshot.mesa_tipo, 'COCTEL');
     assert.equal(snapshot.beneficios.find(b => b.id_beneficio === drink.id_beneficio).cantidad, 4);
+    const auditSql = fs.readFileSync(require.resolve('../src/sql/operacion_auditoria_nombres.sql'), 'utf8');
+    await pool.query(auditSql);
+    await pool.query(auditSql);
+    const auditBefore = [...snapshot.historial_mesas, ...snapshot.entregas].map(h => h.responsable_nombre);
+    assert.ok(auditBefore.length > 0 && auditBefore.every(n => n.startsWith('Equipo ficticio ')));
+    await pool.query("UPDATE usuarios SET nombre='Nombre cambiado ficticio' WHERE id_usuario=ANY($1::int[])", [f.users.map(u => u.id)]);
+    const auditAfter = await api('/operacion/paquetes/' + g1 + '?id_evento=' + event, { role: 'entrada' });
+    assert.deepEqual([...auditAfter.historial_mesas, ...auditAfter.entregas].map(h => h.responsable_nombre), auditBefore);
+    for (const u of f.users)
+        await pool.query('UPDATE usuarios SET nombre=$1 WHERE id_usuario=$2', ['Equipo ficticio ' + u.role, u.id]);
     f.results = { sixArrivals: true, twoPackages: true, scanRace: true, tableRace: true, deliverRace: true, idempotentRecovery: true, permissions: true, legacyReview: true, immutableSnapshot: true };
     save();
     console.log('PASS stage 6 real PostgreSQL/HTTP: six arrivals, two packages, scan/table/delivery races, history, roles, legacy migration and immutable entitlements. Fixtures retained privately for browser checks.');

@@ -3,6 +3,7 @@ const { verificarToken, requiereRoles } = require('../middlewares/authMiddleware
 r.use(verificarToken, requiereRoles('admin', 'entrada'), (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 r.get('/eventos', c.events);
 r.get('/recepcion', c.reception);
+r.get('/mesas', c.tables);
 r.get('/paquetes/:id', c.group);
 r.get('/operaciones/:key', c.result);
 r.post('/consultar-qr', c.lookup);

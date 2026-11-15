@@ -39,5 +39,16 @@ test('repeatable migration leaves ambiguous legacy groups untouched; new package
     tier.beneficios_operativos[0].cantidad = 99;
     assert.deepEqual((await db.query('SELECT nombre,cantidad,entregada FROM paquete_beneficios ORDER BY id_beneficio')).rows, [{ nombre: 'Bebida', cantidad: 4, entregada: 0 }, { nombre: 'Bebida', cantidad: 4, entregada: 0 }]);
     await assert.rejects(db.query('UPDATE paquete_beneficios SET entregada=5'));
+    const audit = fs.readFileSync(require.resolve('./sql/operacion_auditoria_nombres.sql'), 'utf8');
+    await db.exec(audit);
+    await db.exec(audit);
+    const benefit = (await db.query('SELECT * FROM paquete_beneficios ORDER BY id_beneficio LIMIT 1')).rows[0];
+    await db.exec("INSERT INTO operaciones_acceso(operation_id,responsable,huella) VALUES('00000000-0000-4000-8000-000000000001','admin:1','a'),('00000000-0000-4000-8000-000000000002','admin:1','b')");
+    await db.query(`INSERT INTO beneficio_movimientos(id_paquete,id_beneficio,cantidad,responsable,responsable_nombre,motivo,operation_id) VALUES($1,$2,1,'admin:1','Operador ficticio','Entrega explícita','00000000-0000-4000-8000-000000000001'),($1,$2,-1,'admin:1','Operador ficticio','Corrección de prueba','00000000-0000-4000-8000-000000000002')`, [benefit.id_paquete, benefit.id_beneficio]);
+    await db.exec(audit);
+    const movements = (await db.query('SELECT cantidad,responsable_nombre,motivo FROM beneficio_movimientos ORDER BY id')).rows;
+    assert.deepEqual(movements.map(m => m.cantidad), [1, -1]);
+    assert.ok(movements.every(m => m.responsable_nombre === 'Operador ficticio'));
+    assert.equal(movements[1].motivo, 'Corrección de prueba');
     await db.close();
 });
