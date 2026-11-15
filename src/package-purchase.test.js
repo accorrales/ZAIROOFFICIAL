@@ -29,6 +29,7 @@ test('PostgreSQL purchase lifecycle: migration, totals, inventory, rollback, QR 
   `);
   const sql=fs.readFileSync(require.resolve('./sql/paquetes_promocionales.sql'),'utf8');
   await db.exec(sql); await db.exec(sql);
+  await db.exec(fs.readFileSync(require.resolve('./sql/operacion_paquetes.sql'),'utf8'));
   await db.exec(`INSERT INTO eventos (id_evento,nombre,fecha,estado,ubicacion,imagen) VALUES (1,'INFAMOUS','2099-10-31',true,'Venue','image'); INSERT INTO entrada_tiers (id_evento,nombre,precio,cantidad_disponible,entradas_por_paquete) VALUES (1,'Promo General 4',20000,2,4), (1,'Individual',7000,10,1), (1,'Doble',12000,3,2);`);
   const editorial=fs.readFileSync(require.resolve('./sql/eventos_editoriales.sql'),'utf8');
   await db.exec(editorial); await db.exec(editorial);
@@ -66,7 +67,7 @@ test('PostgreSQL purchase lifecycle: migration, totals, inventory, rollback, QR 
   assert.equal(new Set((await db.query('SELECT uuid_entrada FROM compra_entrada_detalles WHERE id_compra=$1',[vip.body.compra.id_compra])).rows.map(r=>r.uuid_entrada)).size,6);
   await assert.rejects(confirm.confirmarCompra(vip.body.compra.id_compra),/ya fue confirmada/);
   const changeZone=response();await tiers.actualizarTier({params:{id:4},body:{nombre:'VIP',precio:75000,entradas_por_paquete:6,cantidad_disponible:1,estado:true,zona:'GENERAL'}},changeZone);assert.equal(changeZone.code,409);
-  await db.exec('DELETE FROM compra_entrada_detalles; DELETE FROM compras_entradas');mail.length=0;wallet.length=0;
+  await db.exec('DELETE FROM compra_entrada_detalles; DELETE FROM paquete_beneficios; DELETE FROM compra_paquetes; DELETE FROM compras_entradas');mail.length=0;wallet.length=0;
   const publicRes=response();await tiers.obtenerTiersPorEvento({params:{id_evento:1}},publicRes);
   assert.equal(publicRes.code,200); assert.equal(publicRes.body.find(t=>t.id_tier===1).entradas_por_paquete,4);
   assert.ok(publicRes.body.every(t=>!Object.hasOwn(t,'cantidad_disponible')));

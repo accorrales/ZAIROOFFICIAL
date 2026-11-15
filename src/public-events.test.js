@@ -8,7 +8,7 @@ const {defaults,validateContent}=require('./utils/eventContent');
 const {migrateLegacyEventContent}=require('./config/legacyEventContent');
 async function database(dateType='TIMESTAMPTZ'){
  const db=new PGlite();await db.exec(`CREATE TABLE eventos(id_evento SERIAL PRIMARY KEY,nombre TEXT,descripcion TEXT,fecha ${dateType},ubicacion TEXT,precio NUMERIC,imagen TEXT,estado BOOLEAN,mostrar_en_home BOOLEAN,ubicacion_visible_publicamente BOOLEAN DEFAULT false,ubicacion_secreta_direccion TEXT);
- CREATE TABLE entrada_tiers(id_tier SERIAL PRIMARY KEY,id_evento INT,nombre TEXT,descripcion TEXT,precio NUMERIC,cantidad_disponible INT,entradas_por_paquete INT,zona TEXT,beneficios_paquete TEXT,estado BOOLEAN,fecha_inicio TIMESTAMPTZ,fecha_fin TIMESTAMPTZ);`);
+ CREATE TABLE entrada_tiers(id_tier SERIAL PRIMARY KEY,id_evento INT,nombre TEXT,descripcion TEXT,precio NUMERIC,cantidad_disponible INT,entradas_por_paquete INT,zona TEXT,beneficios_paquete TEXT,beneficios_operativos JSONB DEFAULT '[]',mesa_tipo TEXT,estado BOOLEAN,fecha_inicio TIMESTAMPTZ,fecha_fin TIMESTAMPTZ);`);
  await db.exec(fs.readFileSync(require.resolve('./sql/eventos_editoriales.sql'),'utf8'));return db;
 }
 test('HTTP public catalogue, closed sales, tier privacy, secret locations and editor roles',async()=>{

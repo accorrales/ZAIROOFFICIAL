@@ -1,3 +1,4 @@
+const {createPackages}=require('../services/paquetesOperacion');
 const { ageAtEvent } = require('../utils/eventAge');
 const pool = require('../config/database');
 const { packageQuote } = require('../utils/ticketPackage');
@@ -93,8 +94,8 @@ exports.crearCompra = async (req, res) => {
       return res.status(400).json({ message: 'Debe ingresar un número de teléfono' });
     }
 
-    if (!Array.isArray(personas) || personas.length === 0 || personas.length > 10) {
-      return res.status(400).json({ message: 'Debe agregar al menos una persona' });
+    if (!Array.isArray(personas) || personas.length === 0 || personas.length > 60) {
+      return res.status(400).json({ message: 'Agregá entre 1 y 60 personas, completando cada paquete' });
     }
 
     const bebidaCortesia = normalizarBebidaCortesia(bebida_cortesia);
@@ -259,6 +260,7 @@ exports.crearCompra = async (req, res) => {
       );
     }
 
+    await createPackages(client,compra,tier);
     if (tier.cantidad_disponible != null) await client.query('UPDATE entrada_tiers SET cantidad_disponible = cantidad_disponible - $1 WHERE id_tier = $2', [quote.units, id_tier]);
     await client.query('COMMIT');
     res.status(201).json({
@@ -420,143 +422,7 @@ exports.rechazarCompra = async (req, res) => {
   finally { client.release(); }
 };
 
-exports.validarQr = async (req, res) => {
-  try {
-    const { qr_data } = req.body;
-
-    if (!qr_data) {
-      return res.status(400).json({
-        valido: false,
-        message: 'QR requerido'
-      });
-    }
-
-    let uuidEntrada = null;
-
-    try {
-      const data = JSON.parse(qr_data);
-      if (data.tipo === 'ZAIRO_TICKET' && data.uuid) {
-        uuidEntrada = data.uuid;
-      }
-    } catch {
-      const match = qr_data.match(/\/t\/([a-f0-9-]+)/i);
-      if (match && match[1]) uuidEntrada = match[1];
-    }
-
-    if (!uuidEntrada || !uuidRegex.test(uuidEntrada)) {
-      return res.status(400).json({
-        valido: false,
-        message: 'QR inválido'
-      });
-    }
-
-    const updateResult = await pool.query(
-      `
-      UPDATE compra_entrada_detalles d
-      SET
-        estado = 'USADA',
-        fecha_ingreso = NOW(),
-        cortesia_tiquete_entregado = CASE
-          WHEN d.bebida_cortesia IS NOT NULL THEN TRUE
-          ELSE FALSE
-        END,
-        cortesia_tiquete_entregado_en = CASE
-          WHEN d.bebida_cortesia IS NOT NULL THEN NOW()
-          ELSE NULL
-        END
-      FROM compras_entradas c
-      INNER JOIN eventos e ON e.id_evento = c.id_evento
-      INNER JOIN entrada_tiers t ON t.id_tier = c.id_tier
-      WHERE d.id_compra = c.id_compra
-        AND d.uuid_entrada = $1
-        AND d.estado = 'CONFIRMADA'
-        AND c.estado = 'PAGADA'
-        AND d.fecha_invalidacion IS NULL
-      RETURNING
-        d.id_detalle,
-        d.nombre_completo,
-        d.estado,
-        d.uuid_entrada,
-        d.fecha_ingreso,
-        d.bebida_cortesia,
-        d.cortesia_tiquete_entregado,
-        d.cortesia_tiquete_entregado_en,
-        c.id_compra,
-        c.zona,
-        c.beneficios_paquete,
-        c.unidades_reservadas,
-        e.nombre AS evento,
-        e.fecha AS fecha_evento,
-        t.nombre AS entrada
-      `,
-      [uuidEntrada]
-    );
-
-    if (updateResult.rows.length > 0) {
-      const entrada = updateResult.rows[0];
-
-      return res.json({
-        valido: true,
-        message: entrada.bebida_cortesia
-          ? 'Entrada válida. Acceso permitido y tiquete de cortesía registrado.'
-          : 'Entrada válida. Acceso permitido.',
-        entrada,
-        cortesia: entrada.bebida_cortesia
-          ? {
-              bebida: entrada.bebida_cortesia,
-              entregar_tiquete: true,
-              tiquete_entregado: entrada.cortesia_tiquete_entregado
-            }
-          : null
-      });
-    }
-
-    const entrada = await obtenerEntradaPorUuid(uuidEntrada);
-
-    if (!entrada) {
-      return res.status(404).json({
-        valido: false,
-        message: 'Entrada no encontrada'
-      });
-    }
-
-    if (entrada.estado === 'INVALIDADA') {
-      return res.status(400).json({
-        valido: false,
-        message: 'Esta entrada fue invalidada. Acceso denegado.',
-        entrada
-      });
-    }
-
-    if (entrada.estado === 'USADA') {
-      return res.status(400).json({
-        valido: false,
-        message: 'Esta entrada ya fue utilizada',
-        entrada,
-        cortesia: entrada.bebida_cortesia
-          ? {
-              bebida: entrada.bebida_cortesia,
-              entregar_tiquete: false,
-              tiquete_entregado: entrada.cortesia_tiquete_entregado,
-              tiquete_entregado_en: entrada.cortesia_tiquete_entregado_en
-            }
-          : null
-      });
-    }
-
-    return res.status(400).json({
-      valido: false,
-      message: 'Entrada no confirmada',
-      entrada
-    });
-  } catch (error) {
-    console.error('ERROR VALIDANDO QR:', error);
-    return res.status(500).json({
-      valido: false,
-      message: 'Error validando QR'
-    });
-  }
-};
+exports.validarQr = require('./operacionController').scan;
 
 exports.obtenerQrEntrada = async (req, res) => {
   try {

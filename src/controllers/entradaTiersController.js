@@ -1,3 +1,4 @@
+const {operationalConfig}=require('../services/paquetesOperacion');
 const pool = require('../config/database');
 const { validateTier } = require('../utils/ticketPackage');
 
@@ -26,6 +27,8 @@ const obtenerTiersPorEvento = async (req, res) => {
         entradas_por_paquete,
         zona,
         beneficios_paquete,
+        beneficios_operativos,
+        mesa_tipo,
         estado,
         to_char(fecha_inicio AT TIME ZONE 'America/Costa_Rica', 'YYYY-MM-DD"T"HH24:MI') AS fecha_inicio,
         to_char(fecha_fin    AT TIME ZONE 'America/Costa_Rica', 'YYYY-MM-DD"T"HH24:MI') AS fecha_fin,
@@ -68,16 +71,16 @@ const crearTier = async (req, res) => {
   } = req.body;
 
   let config;
-  try { config = validateTier(req.body); } catch(error) { return res.status(400).json({error:error.message}); }
+  try { config = {...validateTier(req.body), ...operationalConfig(req.body)}; } catch(error) { return res.status(400).json({error:error.message}); }
   try {
     const result = await pool.query(
       `INSERT INTO entrada_tiers
-       (id_evento, nombre, descripcion, precio, fecha_inicio, fecha_fin, cantidad_disponible, entradas_por_paquete, estado, zona, beneficios_paquete)
+       (id_evento, nombre, descripcion, precio, fecha_inicio, fecha_fin, cantidad_disponible, entradas_por_paquete, estado, zona, beneficios_paquete, beneficios_operativos, mesa_tipo)
        VALUES (
          $1,$2,$3,$4,
          ($5)::timestamp AT TIME ZONE 'America/Costa_Rica',
          ($6)::timestamp AT TIME ZONE 'America/Costa_Rica',
-         $7,$8,$9,$10,$11
+         $7,$8,$9,$10,$11,$12::jsonb,$13
        )
        RETURNING *`,
       [
@@ -87,7 +90,7 @@ const crearTier = async (req, res) => {
         precio,
         fecha_inicio || null,
         fecha_fin || null,
-        config.stock, config.size, req.body.estado !== false, req.body.zona || 'GENERAL', (req.body.beneficios_paquete || '').trim()
+        config.stock, config.size, req.body.estado !== false, req.body.zona || 'GENERAL', (req.body.beneficios_paquete || '').trim(), JSON.stringify(config.benefits), config.mesa
       ]
     );
 
@@ -112,7 +115,7 @@ const actualizarTier = async (req, res) => {
   } = req.body;
 
   let config;
-  try { config = validateTier(req.body); } catch(error) { return res.status(400).json({error:error.message}); }
+  try { config = {...validateTier(req.body), ...operationalConfig(req.body)}; } catch(error) { return res.status(400).json({error:error.message}); }
   try {
     const result = await pool.query(
       `UPDATE entrada_tiers
@@ -125,9 +128,11 @@ const actualizarTier = async (req, res) => {
            estado = $7,
            entradas_por_paquete = $9,
            zona = COALESCE($10, zona),
-           beneficios_paquete = COALESCE($11, beneficios_paquete)
+           beneficios_paquete = COALESCE($11, beneficios_paquete),
+           beneficios_operativos=COALESCE($12::jsonb,beneficios_operativos),
+           mesa_tipo=CASE WHEN $14::boolean THEN $13 ELSE mesa_tipo END
        WHERE id_tier = $8
-         AND ((entradas_por_paquete = $9 AND zona = COALESCE($10, zona) AND beneficios_paquete = COALESCE($11, beneficios_paquete)) OR NOT EXISTS (SELECT 1 FROM compras_entradas WHERE id_tier = $8))
+         AND ((entradas_por_paquete = $9 AND zona = COALESCE($10, zona)) OR NOT EXISTS (SELECT 1 FROM compras_entradas WHERE id_tier = $8))
        RETURNING *`,
       [
         nombre,
@@ -137,7 +142,7 @@ const actualizarTier = async (req, res) => {
         fecha_fin || null,
         config.stock,
         estado,
-        id, config.size, req.body.zona ?? null, req.body.beneficios_paquete?.trim() ?? null
+        id, config.size, req.body.zona ?? null, req.body.beneficios_paquete?.trim() ?? null, req.body.beneficios_operativos===undefined?null:JSON.stringify(config.benefits),config.mesa,Object.hasOwn(req.body,'mesa_tipo')
       ]
     );
 

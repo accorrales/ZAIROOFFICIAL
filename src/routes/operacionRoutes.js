@@ -1,0 +1,15 @@
+const r = require('express').Router(), c = require('../controllers/operacionController');
+const { verificarToken, requiereRoles } = require('../middlewares/authMiddleware');
+r.use(verificarToken, requiereRoles('admin', 'entrada'), (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
+r.get('/eventos', c.events);
+r.get('/recepcion', c.reception);
+r.get('/paquetes/:id', c.group);
+r.get('/operaciones/:key', c.result);
+r.post('/consultar-qr', c.lookup);
+r.post('/escanear', c.scan);
+r.post('/mesas', requiereRoles('admin'), c.table);
+r.post('/mesas/:id', requiereRoles('admin'), c.table);
+r.post('/paquetes/:id/mesa', requiereRoles('admin'), c.assign);
+r.post('/paquetes/:id/entrega', c.deliver);
+r.post('/entradas/:id/cortesia', c.courtesy);
+module.exports = r;

@@ -30,6 +30,7 @@ router.post(
   '/validar-qr',
   verificarToken,
   requiereRoles('admin', 'entrada'),
+  (req,res,next)=>{res.set('Cache-Control','no-store');next();},
   comprasEntradasController.validarQr
 );
 

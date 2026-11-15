@@ -60,6 +60,7 @@ app.use(express.json({
 // Público: autenticación y flujos que combinan endpoints públicos/privados.
 // Los módulos mixtos protegen sus operaciones administrativas dentro del router.
 app.use('/api/auth', authRoutes);
+app.use('/api/operacion', require('./routes/operacionRoutes'));
 app.use('/api/eventos', eventosRoutes);
 app.use('/api/entrada-tiers', entradaTiersRoutes);
 app.use('/api/compras-entradas', comprasEntradasRoutes);

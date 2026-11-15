@@ -36,7 +36,7 @@ async function runPurchase(personas) {
         ? pool
         : name === '../utils/eventAge'
           ? { ageAtEvent }
-          : name === '../utils/ticketPackage' ? require('./ticketPackage') : {}
+          : name === '../utils/ticketPackage' ? require('./ticketPackage') : name === '../services/paquetesOperacion' ? {createPackages:async()=>{}} : {}
   };
 
   vm.runInNewContext(
