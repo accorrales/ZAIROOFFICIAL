@@ -107,7 +107,12 @@ const people = n => Array.from({ length: n }, (_, i) => ({ nombre_completo: `Int
     await deliver(1, 'entrada', 409);
     await deliver(-1, 'entrada', 403);
     await deliver(-1, 'admin');
+    const correction=(await api('/operacion/paquetes/'+g1+'?id_evento='+event,{role:'entrada'})).entregas.find(h=>h.cantidad<0);
+    assert.deepEqual([correction.entregada_antes,correction.entregada_despues,correction.pendiente_antes,correction.pendiente_despues],[4,3,0,1]);
     await deliver(1, 'entrada');
+    const later=(await api('/operacion/paquetes/'+g1+'?id_evento='+event,{role:'entrada'})).entregas.find(h=>h.id===correction.id);
+    assert.deepEqual(later,correction); // Current balance is 4 again; history must still say 4 -> 3.
+
     const lostKey = crypto.randomUUID();
     await deliver(1, 'entrada', 200, lostKey, litre.id_beneficio);
     const recovered = await api('/operacion/operaciones/' + lostKey, { role: 'entrada' });
@@ -163,6 +168,9 @@ const people = n => Array.from({ length: n }, (_, i) => ({ nombre_completo: `Int
     const auditSql = fs.readFileSync(require.resolve('../src/sql/operacion_auditoria_nombres.sql'), 'utf8');
     await pool.query(auditSql);
     await pool.query(auditSql);
+    const balanceSql = fs.readFileSync(require.resolve('../src/sql/operacion_saldos_historicos.sql'), 'utf8');
+    await pool.query(balanceSql);
+    await pool.query(balanceSql);
     const auditBefore = [...snapshot.historial_mesas, ...snapshot.entregas].map(h => h.responsable_nombre);
     assert.ok(auditBefore.length > 0 && auditBefore.every(n => n.startsWith('Equipo ficticio ')));
     await pool.query("UPDATE usuarios SET nombre='Nombre cambiado ficticio' WHERE id_usuario=ANY($1::int[])", [f.users.map(u => u.id)]);

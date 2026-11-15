@@ -38,7 +38,7 @@ async function group(db, id, event) {
     p.ingresados = p.miembros.filter(m => m.fecha_ingreso != null).length;
     p.beneficios = (await db.query('SELECT id_beneficio,nombre,cantidad,entregada,cantidad-entregada AS pendiente FROM paquete_beneficios WHERE id_paquete=$1 ORDER BY id_beneficio', [id])).rows;
     p.historial_mesas = (await db.query(`SELECT h.id,h.responsable,COALESCE(h.responsable_nombre,u.nombre,'Personal autorizado') AS responsable_nombre,h.motivo,h.fecha,COALESCE(h.anterior_etiqueta,a.identificador) AS anterior,COALESCE(h.nueva_etiqueta,n.identificador) AS nueva FROM mesa_historial h LEFT JOIN usuarios u ON u.id_usuario::text=split_part(h.responsable,':',2) LEFT JOIN evento_mesas a ON a.id_mesa=h.anterior LEFT JOIN evento_mesas n ON n.id_mesa=h.nueva WHERE h.id_paquete=$1 ORDER BY h.id DESC`, [id])).rows;
-    p.entregas = (await db.query(`SELECT h.id,h.id_beneficio,b.nombre AS beneficio_nombre,h.cantidad,h.responsable,COALESCE(h.responsable_nombre,u.nombre,'Personal autorizado') AS responsable_nombre,h.motivo,h.fecha FROM beneficio_movimientos h JOIN paquete_beneficios b ON b.id_beneficio=h.id_beneficio LEFT JOIN usuarios u ON u.id_usuario::text=split_part(h.responsable,':',2) WHERE h.id_paquete=$1 ORDER BY h.id DESC`, [id])).rows;
+    p.entregas = (await db.query(`SELECT h.id,h.id_beneficio,b.nombre AS beneficio_nombre,h.cantidad,h.entregada_antes,h.entregada_despues,h.pendiente_antes,h.pendiente_despues,h.responsable,COALESCE(h.responsable_nombre,u.nombre,'Personal autorizado') AS responsable_nombre,h.motivo,h.fecha FROM beneficio_movimientos h JOIN paquete_beneficios b ON b.id_beneficio=h.id_beneficio LEFT JOIN usuarios u ON u.id_usuario::text=split_part(h.responsable,':',2) WHERE h.id_paquete=$1 ORDER BY h.id DESC`, [id])).rows;
     return p;
 }
 async function operation(req, res, kind, work) {
@@ -213,7 +213,7 @@ exports.deliver = (req, res) => operation(req, res, 'deliver', async (db, who, k
     if (b.entregada + quantity < 0 || b.entregada + quantity > b.cantidad)
         throw fail('La cantidad supera lo pendiente o lo previamente entregado', 409);
     await db.query('UPDATE paquete_beneficios SET entregada=entregada+$2 WHERE id_beneficio=$1', [benefit, quantity]);
-    await db.query(`INSERT INTO beneficio_movimientos(id_paquete,id_beneficio,cantidad,responsable,motivo,operation_id,responsable_nombre) VALUES($1,$2,$3,$4,$5,$6,(SELECT nombre FROM usuarios WHERE id_usuario::text=split_part($4,':',2)))`, [id, benefit, quantity, who, motive || 'Entrega explícita', key]);
+    await db.query(`INSERT INTO beneficio_movimientos(id_paquete,id_beneficio,cantidad,responsable,motivo,operation_id,responsable_nombre,entregada_antes,entregada_despues,pendiente_antes,pendiente_despues) VALUES($1,$2,$3,$4,$5,$6,(SELECT nombre FROM usuarios WHERE id_usuario::text=split_part($4,':',2)),$7,$8,$9,$10)`, [id, benefit, quantity, who, motive || 'Entrega explícita', key, b.entregada, b.entregada + quantity, b.cantidad - b.entregada, b.cantidad - b.entregada - quantity]);
     return { message: quantity < 0 ? 'Corrección registrada con historial' : 'Entrega confirmada', id_paquete: id };
 });
 exports.courtesy = (req, res) => operation(req, res, 'courtesy', async (db, who, key) => {

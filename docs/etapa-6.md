@@ -76,3 +76,17 @@ Chromium abortó **después** de recibir/procesar la respuesta real del servidor
 Frontend: 79 pruebas y builds normal/verification aprobados. Ver su informe para capturas, mediciones separadas, estados de carga/error/vacío, respuesta tardía, navegación/foco y guía breve de ensayo pendiente en dos teléfonos físicos. Sin cambios de contabilidad/exportación, despliegue, mezcla o etapa 7. Notificaciones automáticas desactivadas durante toda la verificación.
 
 Limpieza final comprobada: fixtures ficticios eliminados de forma acotada; compra_paquetes, paquete_beneficios, evento_mesas, mesa_historial, beneficio_movimientos, cortesia_movimientos y operaciones_acceso quedaron con cero filas. No se incluyeron credenciales, secretos, datos de base ni capturas en Git. Entrega de evidencia y límites físicos documentados en frontend.
+
+## Tres ajustes menores del cierre
+
+Se conserva b417af7 y los commits anteriores. Único cambio de datos/API: migración requerida, aditiva y repetible **operacion_saldos_historicos.sql**, después de operacion_auditoria_nombres.sql. Añade cuatro INTEGER nullable a beneficio_movimientos: entregada_antes, entregada_despues, pendiente_antes y pendiente_despues. Las filas anteriores permanecen intactas con NULL; no hay backfill a partir del saldo actual.
+
+Cada nuevo movimiento de entrega/corrección conserva los cuatro saldos reales a partir del beneficio bloqueado mediante FOR UPDATE, dentro de la misma transacción del movimiento y recibo. Se exponen al consultar el historial del paquete. Una operación posterior no modifica ese snapshot. No cambia la aritmética del saldo, sus límites, permisos, motivos obligatorios, locks, exclusividad de mesas ni idempotencia. La corrección sigue siendo administrativa y negativa; no se añaden correcciones positivas ni se interpreta devolución física.
+
+Verificación: **32 pruebas backend aprobadas**. Prueba SQL de migración repetida con movimientos antiguos conserva cantidades, responsable y motivo y deja saldos históricos NULL. HTTP/PostgreSQL real conserva las regresiones de concurrencia/roles/snapshots y verifica corrección 4 → 3 entregados / 0 → 1 pendientes; tras registrar otra entrega y volver a 4, el historial permanece idéntico. Dos aplicaciones de la migración en PostgreSQL real con movimientos existentes no modificaron sus filas. Build backend es el placeholder existente.
+
+Frontend: **82 pruebas**, builds normal/verification y verificación Chromium en computadora, 360/390 px y 360×440 aprobados. Un solo aviso incierto, recuperación de clave original sin duplicación, saldos históricos explícitos, referencia del paquete/mesa en encabezado fijo, reserva incierta sin falsa confirmación, nombres largos, cierre/foco y contexto conservados. Registros antiguos incompletos muestran limitación; no se calculan saldos retrospectivos. Ver informe frontend para evidencia.
+
+Datos exclusivamente ficticios y servidor QA local con correo sustituido antes de cargar app, notificaciones automáticas false y WhatsApp desactivado. Navegador bloquea tráfico externo. Sin cambios financieros/exportaciones, despliegues, mezclas, mensajes reales o etapa 7. No se probaron teléfonos físicos: QR manual y viewports emulados.
+
+Limpieza del ajuste: fixtures eliminados de forma acotada y siete tablas operativas verificadas vacías. Capturas y ZIP fuera de Git; no se incluyeron secretos, credenciales ni datos de la base.

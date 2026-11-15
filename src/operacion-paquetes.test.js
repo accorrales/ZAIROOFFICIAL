@@ -50,5 +50,10 @@ test('repeatable migration leaves ambiguous legacy groups untouched; new package
     assert.deepEqual(movements.map(m => m.cantidad), [1, -1]);
     assert.ok(movements.every(m => m.responsable_nombre === 'Operador ficticio'));
     assert.equal(movements[1].motivo, 'Corrección de prueba');
+    const balances=fs.readFileSync(require.resolve('./sql/operacion_saldos_historicos.sql'),'utf8');
+    await db.exec(balances);await db.exec(balances);
+    const legacy=(await db.query('SELECT entregada_antes,entregada_despues,pendiente_antes,pendiente_despues FROM beneficio_movimientos ORDER BY id')).rows;
+    assert.equal(legacy.length,2);assert.ok(legacy.every(h=>Object.values(h).every(v=>v===null)));
+    assert.deepEqual((await db.query('SELECT cantidad,responsable_nombre,motivo FROM beneficio_movimientos ORDER BY id')).rows,movements);
     await db.close();
 });
