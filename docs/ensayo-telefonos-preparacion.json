@@ -1,0 +1,51 @@
+{
+  "mode": "Automatización/simulación",
+  "physical": false,
+  "operations": [
+    {
+      "kind": "ingreso",
+      "posts": 1,
+      "recoveredOriginal": true
+    },
+    {
+      "kind": "entrega",
+      "posts": 1,
+      "recoveredOriginal": true
+    },
+    {
+      "kind": "reserva",
+      "posts": 1,
+      "recoveredOriginal": true
+    }
+  ],
+  "passed": true,
+  "contexto": "Chromium headless con API/PostgreSQL en contenedores locales de ensayo; no teléfonos físicos",
+  "fecha_preparacion": "2026-11-16 America/Costa_Rica",
+  "datos_ficticios": true,
+  "ingresos_fisicos_verificados": 0,
+  "preparacion": {
+    "cuentas": 4,
+    "eventos": 2,
+    "paquetes_vip_de_una_compra": 2,
+    "miembros_por_paquete": 6,
+    "cantidades_beneficios": [
+      1,
+      4
+    ],
+    "mesas_compatibles": 3,
+    "qr": 22
+  },
+  "red": {
+    "api_y_db_sin_puertos_publicados": true,
+    "gateway_solo_loopback": true,
+    "https_desde_telefonos": "Pendiente de entorno autorizado y resultados del usuario"
+  },
+  "pruebas": {
+    "backend_node": 33,
+    "frontend_angular": 82,
+    "gateway_node": 1,
+    "imagenes_docker": "Construidas y ejecutadas localmente",
+    "telefonos_fisicos": "Pendiente"
+  },
+  "limpieza": "Fixtures, cuentas, secretos y QR de preflight eliminados; contenedores, red y volumen de datos retirados. Solo informes y logs sin secretos conservados."
+}
