@@ -1,3 +1,4 @@
+const { respondAdminError, recordNotFound } = require('../utils/adminErrors');
 const pool = require('../config/database');
 const registrarAuditoria = require('../utils/auditoria');
 
@@ -13,11 +14,7 @@ const obtenerPlanillas = async (req, res) => {
         res.json(result.rows);
 
     } catch (error) {
-        console.error(error);
-
-        res.status(500).json({
-            error: 'Error al obtener planillas'
-        });
+        return respondAdminError(res, error, 'planilla', 'consultar');
     }
 };
 
@@ -42,11 +39,7 @@ const crearPlanilla = async (req, res) => {
         res.status(201).json(result.rows[0]);
 
     } catch (error) {
-        console.error(error);
-
-        res.status(500).json({
-            error: 'Error al crear planilla'
-        });
+        return respondAdminError(res, error, 'planilla', 'crear');
     }
 };
 
@@ -74,14 +67,11 @@ const actualizarPlanilla = async (req, res) => {
             [nombre_periodo, fecha_inicio, fecha_fin, estado, id]
         );
 
+        if (!result.rows.length) return recordNotFound(res, 'planilla');
         res.json(result.rows[0]);
 
     } catch (error) {
-        console.error(error);
-
-        res.status(500).json({
-            error: 'Error al actualizar planilla'
-        });
+        return respondAdminError(res, error, 'planilla', 'actualizar');
     }
 };
 
@@ -91,22 +81,19 @@ const eliminarPlanilla = async (req, res) => {
     const { id } = req.params;
 
     try {
-        await pool.query(
+        const result = await pool.query(
             `DELETE FROM planillas
-             WHERE id_planilla = $1`,
+             WHERE id_planilla = $1 RETURNING id_planilla`,
             [id]
         );
 
+        if (!result.rows.length) return recordNotFound(res, 'planilla');
         res.json({
             mensaje: 'Planilla eliminada correctamente'
         });
 
     } catch (error) {
-        console.error(error);
-
-        res.status(500).json({
-            error: 'Error al eliminar planilla'
-        });
+        return respondAdminError(res, error, 'planilla', 'eliminar');
     }
 };
 
@@ -116,6 +103,9 @@ const procesarPlanilla = async (req, res) => {
     const { id } = req.params;
 
     try {
+        const existing = await pool.query('SELECT id_planilla FROM planillas WHERE id_planilla = $1', [id]);
+        if (!existing.rows.length) return recordNotFound(res, 'planilla');
+
         // 1. Obtener todos los empleados activos
         const empleados = await pool.query(`
             SELECT * 
@@ -213,11 +203,7 @@ const procesarPlanilla = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
-
-        res.status(500).json({
-            error: 'Error al procesar planilla'
-        });
+        return respondAdminError(res, error, 'planilla', 'procesar');
     }
 };
 
@@ -237,7 +223,7 @@ const obtenerDetallePlanilla = async (req, res) => {
 
         if (planillaResult.rows.length === 0) {
             return res.status(404).json({
-                error: 'La planilla no existe'
+                codigo: 'ADMIN_NO_EXISTE', error: 'La planilla no existe. Volvé al listado y actualizá los datos.'
             });
         }
 
@@ -274,10 +260,7 @@ const obtenerDetallePlanilla = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
-        res.status(500).json({
-            error: 'Error al obtener el detalle de la planilla'
-        });
+        return respondAdminError(res, error, 'planilla', 'consultar');
     }
 };
 
@@ -297,7 +280,7 @@ const confirmarPlanilla = async (req, res) => {
 
         if (planillaResult.rows.length === 0) {
             return res.status(404).json({
-                error: 'La planilla no existe'
+                codigo: 'ADMIN_NO_EXISTE', error: 'La planilla no existe. Volvé al listado y actualizá los datos.'
             });
         }
 
@@ -306,13 +289,15 @@ const confirmarPlanilla = async (req, res) => {
         // 2. Validar estado actual
         if (planilla.estado === 'PENDIENTE') {
             return res.status(400).json({
+                codigo: 'ADMIN_PLANILLA_PENDIENTE',
                 error: 'No se puede confirmar una planilla pendiente. Primero debe procesarse.'
             });
         }
 
         if (planilla.estado === 'CONFIRMADA') {
             return res.status(400).json({
-                error: 'La planilla ya fue confirmada'
+                codigo: 'ADMIN_PLANILLA_CONFIRMADA',
+                error: 'La planilla ya fue confirmada. Actualizá el listado para consultar su estado.'
             });
         }
 
@@ -341,10 +326,7 @@ const confirmarPlanilla = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
-        res.status(500).json({
-            error: 'Error al confirmar la planilla'
-        });
+        return respondAdminError(res, error, 'planilla', 'confirmar');
     }
 };
 

@@ -1,3 +1,4 @@
+const { respondAdminError, recordNotFound } = require('../utils/adminErrors');
 const pool = require('../config/database');
 const registrarAuditoria = require('../utils/auditoria');
 
@@ -31,11 +32,7 @@ const obtenerNovedades = async (req, res) => {
         res.json(result.rows);
 
     } catch (error) {
-        console.error(error);
-
-        res.status(500).json({
-            error: 'Error al obtener novedades'
-        });
+        return respondAdminError(res, error, 'novedad', 'consultar');
     }
 };
 
@@ -72,11 +69,7 @@ const crearNovedad = async (req, res) => {
         res.status(201).json(result.rows[0]);
 
     } catch (error) {
-        console.error(error);
-
-        res.status(500).json({
-            error: 'Error al crear novedad'
-        });
+        return respondAdminError(res, error, 'novedad', 'crear');
     }
 };
 
@@ -98,7 +91,7 @@ const actualizarNovedad = async (req, res) => {
 
         if (anterior.rows.length === 0) {
             return res.status(404).json({
-                error: 'La novedad no existe'
+                codigo: 'ADMIN_NO_EXISTE', error: 'La novedad no existe. Actualizá el listado.'
             });
         }
 
@@ -112,6 +105,8 @@ const actualizarNovedad = async (req, res) => {
             [cantidad, monto, observacion, id]
         );
 
+        if (!result.rows.length) return recordNotFound(res, 'novedad');
+
         await registrarAuditoria(
             'novedades',
             Number(id),
@@ -124,11 +119,7 @@ const actualizarNovedad = async (req, res) => {
         res.json(result.rows[0]);
 
     } catch (error) {
-        console.error(error);
-
-        res.status(500).json({
-            error: 'Error al actualizar novedad'
-        });
+        return respondAdminError(res, error, 'novedad', 'actualizar');
     }
 };
 
@@ -145,15 +136,17 @@ const eliminarNovedad = async (req, res) => {
 
         if (anterior.rows.length === 0) {
             return res.status(404).json({
-                error: 'La novedad no existe'
+                codigo: 'ADMIN_NO_EXISTE', error: 'La novedad no existe. Actualizá el listado.'
             });
         }
 
-        await pool.query(
+        const deleted = await pool.query(
             `DELETE FROM novedades
-             WHERE id_novedad = $1`,
+             WHERE id_novedad = $1 RETURNING id_novedad`,
             [id]
         );
+
+        if (!deleted.rows.length) return recordNotFound(res, 'novedad');
 
         await registrarAuditoria(
             'novedades',
@@ -169,11 +162,7 @@ const eliminarNovedad = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
-
-        res.status(500).json({
-            error: 'Error al eliminar novedad'
-        });
+        return respondAdminError(res, error, 'novedad', 'eliminar');
     }
 };
 

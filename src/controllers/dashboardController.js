@@ -1,3 +1,4 @@
+const { respondAdminError, recordNotFound } = require('../utils/adminErrors');
 const pool = require('../config/database');
 
 const obtenerDashboard = async (req, res) => {
@@ -49,10 +50,7 @@ const obtenerDashboard = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
-        res.status(500).json({
-            error: 'Error al obtener dashboard'
-        });
+        return respondAdminError(res, error, 'resumen', 'consultar');
     }
 };
 

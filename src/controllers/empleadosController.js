@@ -1,3 +1,4 @@
+const { respondAdminError, recordNotFound } = require('../utils/adminErrors');
 const pool = require('../config/database');
 
 // Obtener todos los empleados con su departamento
@@ -26,11 +27,8 @@ const obtenerEmpleados = async (req, res) => {
 
     res.json(result.rows);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      error: 'Error al obtener empleados'
-    });
-  }
+        return respondAdminError(res, error, 'empleado', 'consultar');
+    }
 };
 
 // Crear empleado
@@ -70,11 +68,8 @@ const crearEmpleado = async (req, res) => {
 
     res.status(201).json(result.rows[0]);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      error: 'Error al crear empleado'
-    });
-  }
+        return respondAdminError(res, error, 'empleado', 'crear');
+    }
 };
 
 // Actualizar empleado
@@ -126,20 +121,18 @@ const actualizarEmpleado = async (req, res) => {
       ]
     );
 
-    res.json(result.rows[0]);
+    if (!result.rows.length) return recordNotFound(res, 'empleado');
+        res.json(result.rows[0]);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      error: 'Error al actualizar empleado'
-    });
-  }
+        return respondAdminError(res, error, 'empleado', 'actualizar');
+    }
 };
 
 // Eliminar empleado
 const eliminarEmpleado = async (req, res) => {
   const { id } = req.params;
   if (!/^[1-9]\d*$/.test(String(id)) || !Number.isSafeInteger(Number(id))) {
-    return res.status(400).json({ error: 'El identificador del empleado no es válido' });
+    return res.status(400).json({ codigo: 'ADMIN_FORMATO_INVALIDO', error: 'El identificador del empleado no es válido. Actualizá el listado.' });
   }
 
   try {
@@ -156,17 +149,12 @@ const eliminarEmpleado = async (req, res) => {
       mensaje: 'Empleado eliminado correctamente'
     });
   } catch (error) {
-    if (error.code === '23503') {
-      return res.status(409).json({
-        codigo: 'EMPLEADO_CON_HISTORIAL',
-        error: 'No se puede eliminar este empleado porque tiene planillas u otros registros asociados. Podés editarlo y cambiar su estado a Inactivo para conservar el historial.'
-      });
+        if (error.code === '23503') {
+            const response = require('../utils/adminErrors').adminError(error, 'empleado', 'eliminar');
+            return res.status(response.status).json({...response.body, codigo: 'EMPLEADO_CON_HISTORIAL'});
+        }
+        return respondAdminError(res, error, 'empleado', 'eliminar');
     }
-    console.error('Error al eliminar empleado', { code: error.code || 'UNKNOWN' });
-    res.status(500).json({
-      error: 'Error al eliminar empleado'
-    });
-  }
 };
 
 module.exports = {

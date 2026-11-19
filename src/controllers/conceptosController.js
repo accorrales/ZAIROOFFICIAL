@@ -1,3 +1,4 @@
+const { respondAdminError, recordNotFound } = require('../utils/adminErrors');
 const pool = require('../config/database');
 
 
@@ -13,15 +14,8 @@ const obtenerConceptos = async (req, res) => {
         res.json(result.rows);
 
     } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-            error: 'Error al obtener conceptos'
-        });
-
+        return respondAdminError(res, error, 'concepto', 'consultar');
     }
-
 };
 
 
@@ -49,15 +43,8 @@ const crearConcepto = async (req, res) => {
         res.status(201).json(result.rows[0]);
 
     } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-            error: 'Error al crear concepto'
-        });
-
+        return respondAdminError(res, error, 'concepto', 'crear');
     }
-
 };
 
 
@@ -90,18 +77,12 @@ const actualizarConcepto = async (req, res) => {
             [nombre, tipo, descripcion, porcentaje, monto_fijo, estado, id]
         );
 
+        if (!result.rows.length) return recordNotFound(res, 'concepto');
         res.json(result.rows[0]);
 
     } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-            error: 'Error al actualizar concepto'
-        });
-
+        return respondAdminError(res, error, 'concepto', 'actualizar');
     }
-
 };
 
 
@@ -112,26 +93,20 @@ const eliminarConcepto = async (req, res) => {
 
     try {
 
-        await pool.query(
+        const result = await pool.query(
             `DELETE FROM conceptos_pago
-             WHERE id_concepto = $1`,
+             WHERE id_concepto = $1 RETURNING id_concepto`,
             [id]
         );
 
+        if (!result.rows.length) return recordNotFound(res, 'concepto');
         res.json({
             mensaje: 'Concepto eliminado correctamente'
         });
 
     } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-            error: 'Error al eliminar concepto'
-        });
-
+        return respondAdminError(res, error, 'concepto', 'eliminar');
     }
-
 };
 
 
