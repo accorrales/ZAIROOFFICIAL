@@ -7,9 +7,12 @@ ALTER TABLE eventos
   ADD COLUMN IF NOT EXISTS contenido_borrador JSONB NOT NULL DEFAULT '{}'::jsonb,
   ADD COLUMN IF NOT EXISTS contenido_publicado JSONB,
   ADD COLUMN IF NOT EXISTS revision_editorial INTEGER NOT NULL DEFAULT 0;
-UPDATE eventos SET mostrar_en_home=(COALESCE(estado,false) OR COALESCE(mostrar_en_home,false)), publicacion = CASE WHEN estado THEN 'PUBLICADO' WHEN mostrar_en_home THEN 'PROXIMAMENTE' ELSE 'BORRADOR' END
+-- Preserve the existing home selection, including explicitly hidden active events.
+UPDATE eventos SET publicacion = CASE WHEN estado THEN 'PUBLICADO' WHEN mostrar_en_home THEN 'PROXIMAMENTE' ELSE 'BORRADOR' END
 WHERE publicacion IS NULL;
-UPDATE eventos SET ventas_abiertas = (COALESCE(estado,false) AND publicacion = 'PUBLICADO') WHERE ventas_abiertas IS NULL;
+-- Initialize the new sales flag only. Past/undated events must not start selling.
+-- Re-runs preserve explicit editorial choices made after the migration.
+UPDATE eventos SET ventas_abiertas = (COALESCE(estado,false) AND publicacion = 'PUBLICADO' AND COALESCE(fecha > CURRENT_TIMESTAMP,false)) WHERE ventas_abiertas IS NULL;
 UPDATE eventos SET contenido_publicado = jsonb_build_object(
   'nombre',nombre,'descripcion',COALESCE(descripcion,''),'fecha',fecha,'ubicacion',COALESCE(ubicacion,''),
   'precio',precio,'imagen',COALESCE(imagen,''))

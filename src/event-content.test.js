@@ -26,7 +26,7 @@ test('migration preserves legacy states, is repeatable, and editorial publicatio
  INSERT INTO eventos(nombre,fecha,estado,mostrar_en_home) VALUES ('Activo','2099-01-01',true,false),('Teaser','2099-01-01',false,true),('Privado','2099-01-01',false,false);`);
  const sql=fs.readFileSync(require.resolve('./sql/eventos_editoriales.sql'),'utf8');await db.exec(sql);await db.exec(sql);
  const rows=(await db.query('SELECT * FROM eventos ORDER BY id_evento')).rows;
- assert.deepEqual(rows.map(r=>[r.publicacion,r.ventas_abiertas,r.mostrar_en_home]),[['PUBLICADO',true,true],['PROXIMAMENTE',false,true],['BORRADOR',false,false]]);
+ assert.deepEqual(rows.map(r=>[r.publicacion,r.ventas_abiertas,r.mostrar_en_home]),[['PUBLICADO',true,false],['PROXIMAMENTE',false,true],['BORRADOR',false,false]]);
  const client={query:(sql,args)=>sql.includes('pg_advisory_xact_lock')?Promise.resolve({rows:[]}):db.query(sql,args),release(){}};
  const key=require.resolve('./config/database');require.cache[key]={id:key,filename:key,loaded:true,exports:{query:client.query,connect:async()=>client}};
  const controller=require('./controllers/eventContentController');
@@ -52,4 +52,33 @@ test('migration preserves legacy states, is repeatable, and editorial publicatio
  row=(await db.query('SELECT * FROM eventos WHERE id_evento=3')).rows[0];assert.equal(publicEvent(row,true),null);assert.equal(row.estado,false);
  await db.exec(sql);assert.equal((await db.query('SELECT publicacion FROM eventos WHERE id_evento=3')).rows[0].publicacion,'BORRADOR');
  await db.close();
+});
+
+
+test('legacy migration preserves home selection, closes past sales and leaves purchases unchanged',async()=>{
+ const db=new PGlite();
+ try {
+  await db.exec(`CREATE TABLE eventos(id_evento SERIAL PRIMARY KEY,nombre TEXT,descripcion TEXT,fecha TIMESTAMPTZ,ubicacion TEXT,precio NUMERIC,imagen TEXT,estado BOOLEAN,mostrar_en_home BOOLEAN);
+   CREATE TABLE compras_entradas(id_compra INT PRIMARY KEY,id_evento INT,estado TEXT,total NUMERIC,cupo_reservado BOOLEAN);
+   INSERT INTO eventos(nombre,fecha,estado,mostrar_en_home) VALUES
+   ('Pasado oculto',CURRENT_TIMESTAMP-INTERVAL '1 day',true,false),
+   ('Pasado visible',CURRENT_TIMESTAMP-INTERVAL '1 day',true,true),
+   ('Futuro oculto',CURRENT_TIMESTAMP+INTERVAL '1 day',true,false),
+   ('Sin fecha',NULL,true,false),
+   ('Anuncio',CURRENT_TIMESTAMP+INTERVAL '1 day',false,true);
+   INSERT INTO compras_entradas VALUES(1,1,'PENDIENTE',100,true),(2,2,'PAGADA',200,false);`);
+  const before=(await db.query('SELECT * FROM compras_entradas ORDER BY id_compra')).rows;
+  const sql=fs.readFileSync(require.resolve('./sql/eventos_editoriales.sql'),'utf8');
+  await db.exec(sql);
+  const states=async()=>(await db.query('SELECT publicacion,ventas_abiertas,mostrar_en_home FROM eventos ORDER BY id_evento')).rows;
+  const initial=await states();
+  assert.deepEqual(initial.map(r=>[r.publicacion,r.ventas_abiertas,r.mostrar_en_home]),[
+   ['PUBLICADO',false,false],['PUBLICADO',false,true],['PUBLICADO',true,false],['PUBLICADO',false,false],['PROXIMAMENTE',false,true]
+  ]);
+  await db.exec(sql);
+  assert.deepEqual(await states(),initial);
+  assert.deepEqual((await db.query('SELECT * FROM compras_entradas ORDER BY id_compra')).rows,before);
+  await db.exec('UPDATE eventos SET ventas_abiertas=false,mostrar_en_home=true WHERE id_evento=3');
+  const edited=await states();await db.exec(sql);assert.deepEqual(await states(),edited);
+ } finally {await db.close();}
 });
