@@ -138,19 +138,31 @@ const actualizarEmpleado = async (req, res) => {
 // Eliminar empleado
 const eliminarEmpleado = async (req, res) => {
   const { id } = req.params;
+  if (!/^[1-9]\d*$/.test(String(id)) || !Number.isSafeInteger(Number(id))) {
+    return res.status(400).json({ error: 'El identificador del empleado no es válido' });
+  }
 
   try {
-    await pool.query(
+    const result = await pool.query(
       `DELETE FROM empleados
-       WHERE id_empleado = $1`,
+       WHERE id_empleado = $1 RETURNING id_empleado`,
       [id]
     );
 
+    if (!result.rows.length) {
+      return res.status(404).json({ error: 'El empleado ya no existe' });
+    }
     res.json({
       mensaje: 'Empleado eliminado correctamente'
     });
   } catch (error) {
-    console.error(error);
+    if (error.code === '23503') {
+      return res.status(409).json({
+        codigo: 'EMPLEADO_CON_HISTORIAL',
+        error: 'No se puede eliminar este empleado porque tiene planillas u otros registros asociados. Podés editarlo y cambiar su estado a Inactivo para conservar el historial.'
+      });
+    }
+    console.error('Error al eliminar empleado', { code: error.code || 'UNKNOWN' });
     res.status(500).json({
       error: 'Error al eliminar empleado'
     });

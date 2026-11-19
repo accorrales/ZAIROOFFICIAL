@@ -136,3 +136,10 @@ Comprobación de imagen completada: 65 archivos JavaScript válidos, dependencia
 
 
 Primer intento Railway (deployment6a06e87f-1803-4bc3-b923-7c7b34581a68, commit496b04d): FAILED en validación del Dockerfile, antes de ejecutar app/migraciones, porque el constructor no admite montajes BuildKit de tipo secret. Se verificó que la versión previa permanecía online con una réplica. Corrección: Dockerfile de producción sin montajes de certificado; adaptación TLS solo en archivo local fuera de Git. Se prepara reintento sin cambios de datos ni de secretos.
+
+
+## Corrección operativa: eliminación de empleados
+
+Después del despliegue, una captura del usuario mostró DELETE empleados500. Logs acotados de Railway confirmaron violación de FK fk_detalle_empleado: el borrado estaba correctamente bloqueado por planillas existentes, pero se informaba como error interno. No se eliminaron restricciones ni se usó CASCADE. El endpoint ahora responde409/EMPLEADO_CON_HISTORIAL con alternativa explícita de inactivar;400 para identificadores inválidos y404 si ya no existe. Solo elimina cuando PostgreSQL permite el DELETE original, conserva permisos existentes y evita registrar detalles personales del error SQL. No se ejecutaron borrados ni actualizaciones de empleados reales como prueba.
+
+Pruebas:35/35 backend, más repetición focalizada de autorización incluyendo admin/rrhh/contabilidad permitidos y entrada/visor denegados. PostgreSQL/PGlite ficticio comprueba rechazo de empleados con planillas/novedades, borrado de empleado sin vínculos, repetición404, inactivación explícita mediante actualización existente y planillas/saldos históricos intactos. No hay migraciones nuevas.
