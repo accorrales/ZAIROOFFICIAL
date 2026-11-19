@@ -215,11 +215,8 @@ const revalidarEntrada = async (req, res) => {
   }
 };
 
-// Reporte CSV (se abre en Excel) con todas las personas que compraron.
-const descargarReporteCsv = async (req, res) => {
-  const { id_evento } = req.params;
-
-  try {
+// Same paid-ticket selection for CSV and Excel; no purchase or pricing changes.
+const cargarDatosReporte = async (id_evento) => {
     const evento = await pool.query(
       `SELECT nombre FROM eventos WHERE id_evento = $1`,
       [id_evento]
@@ -234,6 +231,14 @@ const descargarReporteCsv = async (req, res) => {
         c.zona,
         c.beneficios_paquete,
         c.id_compra,
+        c.total AS total_compra,
+        c.cantidad AS cantidad_compra,
+        p.id_paquete,
+        p.promocion AS promocion_adquirida,
+        p.beneficios_descripcion AS beneficios_adquiridos,
+        p.mesa_tipo AS mesa_incluida,
+        COALESCE((SELECT json_agg(json_build_object('nombre', b.nombre, 'cantidad', b.cantidad) ORDER BY b.id_beneficio)
+          FROM paquete_beneficios b WHERE b.id_paquete = p.id_paquete), '[]'::json) AS beneficios_incluidos,
         t.nombre   AS tier,
         c.total / NULLIF(c.cantidad, 0) AS precio,
         d.uuid_entrada,
@@ -245,12 +250,24 @@ const descargarReporteCsv = async (req, res) => {
       FROM compra_entrada_detalles d
       INNER JOIN compras_entradas c ON c.id_compra = d.id_compra
       INNER JOIN entrada_tiers t    ON t.id_tier  = c.id_tier
+      LEFT JOIN compra_paquetes p ON p.id_paquete = d.id_paquete
+        AND p.id_compra = c.id_compra AND p.id_evento = c.id_evento
       WHERE c.id_evento = $1
         AND c.estado = 'PAGADA'
       ORDER BY c.fecha_creacion DESC, d.id_detalle
       `,
       [id_evento]
     );
+
+    return {evento, result};
+};
+
+// Reporte CSV (se abre en Excel) con todas las personas que compraron.
+const descargarReporteCsv = async (req, res) => {
+  const { id_evento } = req.params;
+
+  try {
+    const {evento, result} = await cargarDatosReporte(id_evento);
 
     const escapar = (valor) => {
       const texto = valor === null || valor === undefined ? '' : String(valor);
@@ -314,9 +331,60 @@ const descargarReporteCsv = async (req, res) => {
   }
 };
 
+const descargarReporteExcel = async (req, res) => {
+  try {
+    const {evento, result} = await cargarDatosReporte(req.params.id_evento);
+    if (!evento.rows.length) return res.status(404).json({codigo:'ADMIN_NO_EXISTE',error:'No se encontró el evento del reporte. Actualizá el listado.'});
+    const {workbook} = require('../utils/excelWorkbook');
+    const number = value => value === null || value === undefined || value === '' ? null : Number(value);
+    const date = value => value ? new Date(value).toISOString() : '';
+    const benefits = row => [
+      row.beneficios_adquiridos ?? row.beneficios_paquete,
+      row.mesa_incluida ? 'Mesa incluida (tipo): ' + row.mesa_incluida : '',
+      ...(Array.isArray(row.beneficios_incluidos) ? row.beneficios_incluidos : []).map(b => `${b.nombre}: ${b.cantidad} ${Number(b.cantidad) === 1 ? 'unidad incluida' : 'unidades incluidas'}`)
+    ].filter(Boolean).join('\n');
+    const purchases = new Map();
+    for (const row of result.rows) if (!purchases.has(row.id_compra)) purchases.set(row.id_compra, row);
+    const data = workbook([
+      {name:'Entradas', columns:[
+        {title:'Nombre',width:32},{title:'Teléfono del comprador',width:24},{title:'Correo del comprador',width:35},
+        {title:'Tipo de entrada',width:28},{title:'Zona',width:14},{title:'ID compra',width:14},{title:'ID paquete',width:14},
+        {title:'Promoción adquirida',width:36},{title:'Beneficios por paquete (compartidos)',width:55,wrap:true},
+        {title:'Precio prorrateado por entrada (CRC)',width:27,money:true},{title:'Estado de entrada',width:20},
+        {title:'Fecha de compra (ISO)',width:28},{title:'UUID entrada',width:40}
+      ], rows:result.rows.map(row=>[
+        row.nombre_completo,row.telefono_comprador,row.correo_comprador,row.tier,row.zona,number(row.id_compra),number(row.id_paquete),
+        row.promocion_adquirida,benefits(row),number(row.precio),row.estado,date(row.fecha_creacion),row.uuid_entrada
+      ])},
+      {name:'Compras',columns:[
+        {title:'ID compra',width:14},{title:'Correo del comprador',width:35},{title:'Teléfono del comprador',width:24},
+        {title:'Cantidad de entradas compradas',width:26},{title:'Total pagado (CRC)',width:24,money:true},{title:'Fecha de compra (ISO)',width:28}
+      ],rows:[...purchases.values()].map(row=>[number(row.id_compra),row.correo_comprador,row.telefono_comprador,number(row.cantidad_compra),number(row.total_compra),date(row.fecha_creacion)])},
+      {name:'Información',columns:[{title:'Campo',width:28},{title:'Descripción',width:100,wrap:true}],rows:[
+        ['Evento',evento.rows[0].nombre],
+        ['Entradas','Una fila por persona, de compras pagadas. Incluye entradas usadas e invalidadas para conservar el historial de ventas.'],
+        ['Importes','Entradas conserva el prorrateo del CSV: total de compra dividido por cantidad. Compras incluye una fila por cada compra representada en Entradas, con su total pagado una sola vez para conciliación.'],
+        ['Beneficios','La descripción, la mesa incluida y las cantidades adquiridas provienen de la compra/paquete. Son compartidos: se repiten en las entradas y no deben sumarse por persona ni interpretarse como saldo pendiente o entregado.'],
+        ['Paquetes anteriores','Si no hay paquete identificado, el ID y la promoción adquirida quedan vacíos. No se deducen grupos ni beneficios a partir de la promoción actual.'],
+        ['Contacto','El teléfono y el correo corresponden al comprador, no necesariamente al asistente.'],
+        ['Fechas','Se conserva el mismo formato ISO de fecha del CSV.']
+      ]}
+    ]);
+    const name=(evento.rows[0].nombre || 'evento').replace(/[^a-z0-9]+/gi,'_').toLowerCase();
+    res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition',`attachment; filename="entradas_${name}.xlsx"`);
+    res.setHeader('Cache-Control','private, no-store');
+    res.send(data);
+  } catch (error) {
+    if(error.codigo === 'ADMIN_REPORTE_INVALIDO')return res.status(422).json({codigo:error.codigo,error:error.message});
+    return require('../utils/adminErrors').respondAdminError(res,error,'reporte de entradas','consultar');
+  }
+};
+
 module.exports = {
   obtenerEntradasPorEvento,
   invalidarEntrada,
   revalidarEntrada,
-  descargarReporteCsv
+  descargarReporteCsv,
+  descargarReporteExcel
 };

@@ -45,6 +45,7 @@ test('accounting can use financial APIs while unrelated operations remain denied
     ['PATCH','/api/compras-entradas/1/rechazar',403],
     ['GET','/api/dashboard-entradas/evento/1',200],
     ['GET','/api/dashboard-entradas/evento/1/reporte.csv',200],
+    ['GET','/api/dashboard-entradas/evento/1/reporte.xlsx',200],
     ['PATCH','/api/dashboard-entradas/detalle/1/invalidar',403],
     ['GET','/api/usuarios',403], ['POST','/api/eventos',403],
     ['GET','/api/eventos/1/contenido',403],
@@ -78,6 +79,13 @@ test('accounting can use financial APIs while unrelated operations remain denied
     assert.equal((await fetch(origin+'/api/dashboard')).status,401);
     const denied = await fetch(origin+'/api/dashboard-entradas/evento/1');
     assert.equal(denied.status,401);
+    for(const role of ['admin','rrhh','contabilidad','entrada','visor']){
+      const token=jwt.sign({rol:role},process.env.JWT_SECRET);
+      const oldReport=await fetch(origin+'/api/dashboard-entradas/evento/1/reporte.csv',{headers:{Authorization:`Bearer ${token}`}});
+      const excel=await fetch(origin+'/api/dashboard-entradas/evento/1/reporte.xlsx',{headers:{Authorization:`Bearer ${token}`}});
+      assert.equal(excel.status,oldReport.status,role+' export permissions unchanged');
+    }
+    assert.equal((await fetch(origin+'/api/dashboard-entradas/evento/1/reporte.xlsx')).status,401);
     const token = jwt.sign({rol:'admin'},process.env.JWT_SECRET,{expiresIn:'1h'});
     const admin = await fetch(origin+'/api/dashboard-entradas/detalle/1/invalidar',{method:'PATCH',headers:{Authorization:`Bearer ${token}`}});
     assert.equal(admin.status,200);

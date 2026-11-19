@@ -4,7 +4,7 @@ const records = {
  concepto: {label:'el concepto', linked:'Está asociado a novedades u otros registros de planilla. Conservá el concepto para mantener el historial.'},
  novedad: {label:'la novedad', linked:'Tiene registros asociados que deben conservarse para mantener el historial.'},
  planilla: {label:'la planilla', linked:'Contiene detalles de pago o novedades asociados. Conservá la planilla para mantener el historial.'},
- resumen: {label:'el resumen'}, departamentos: {label:'los departamentos'}
+ resumen: {label:'el resumen'}, departamentos: {label:'los departamentos'}, 'reporte de entradas': {label:'el reporte de entradas'}
 };
 const fields = {nombre:'nombre',nombre_periodo:'período',cedula:'cédula',tipo:'tipo de concepto',estado:'estado',salario_base:'salario',cantidad:'cantidad',monto:'monto',porcentaje:'porcentaje',monto_fijo:'monto fijo',fecha_ingreso:'fecha de ingreso',fecha_inicio:'fecha de inicio',fecha_fin:'fecha de fin',id_empleado:'empleado',id_planilla:'planilla',id_concepto:'concepto',id_departamento:'departamento'};
 const references = {fk_empleado_departamento:'El departamento seleccionado ya no existe.',fk_novedad_empleado:'El empleado seleccionado ya no existe.',fk_novedad_planilla:'La planilla seleccionada ya no existe.',fk_novedad_concepto:'El concepto seleccionado ya no existe.'};
