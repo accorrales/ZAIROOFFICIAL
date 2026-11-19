@@ -1,0 +1,9 @@
+# Only the production runtime is admitted to the image build context.
+*
+!Dockerfile
+!package.json
+!package-lock.json
+!src/
+!src/**
+**/*.test.js
+**/.env*
